@@ -3,17 +3,37 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
-    private static List<String> departments = new ArrayList<>();
+    private static final List<String> departments = new ArrayList<>();
+
+    private static HashMap<String, Employee> employees;
+
+    private static HashMap<String, Employee> tokens;
+
+    private static HashMap<String, FileMeta> filesMeta;
+
+    private static HashMap<String, NodeInt> nodes;
+
+    private static HashSet<Map.Entry<String, String>> load;
 
     protected CoordinatorImp() throws RemoteException {
         super();
         departments.addAll(Arrays.asList("IT", "HR", "QA", "GRAPHICS", "SALES"));
+    }
+
+    public static void main(String[] args) {
+        try {
+            CoordinatorImp coordinator = new CoordinatorImp();
+            LocateRegistry.createRegistry(5000);
+
+            Naming.bind("rmi://localhost:5000" + "/coordinator", coordinator);
+            System.out.println("coordinator is running");
+        } catch (Exception e) {
+            System.out.println(e);
+        }
     }
 
     @Override
@@ -49,19 +69,45 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         return token != null;
     }
 
-    public static void main(String[] args) {
-        try
-        {
-            CoordinatorImp coordinator = new CoordinatorImp();
-            LocateRegistry.createRegistry(5000);
-
-            Naming.bind("rmi://localhost:5000"+
-                    "/coordinator",coordinator);
-            System.out.println("coordinator is running");
-        }
-        catch(Exception e)
-        {
-            System.out.println(e);
-        }
+    @Override
+    public boolean createFile(String token, byte[] content, String fullName) throws RemoteException {
+        return false;
     }
+
+    @Override
+    public byte[] getFile(String token, String name, String dep) throws RemoteException {
+        return new byte[0];
+    }
+
+    @Override
+    public boolean updateFile(String token, byte[] content, String fullName) throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public boolean deleteFile(String token, String name, String dep) throws RemoteException {
+        return false;
+    }
+
+    private String addEmployee(String username, String password, List<String> roles) {
+        return "";
+    }
+
+    private boolean checkPassword(Employee employee, String password) {
+        return false;
+    }
+
+    private String generateToken(Employee employee) {
+        return "";
+    }
+
+    private boolean nodesSync() {
+        return false;
+    }
+
+    private NodeInt getBestNode(List<String> nodes) {
+        return null;
+    }
+
+
 }

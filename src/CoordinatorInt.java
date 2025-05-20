@@ -14,4 +14,14 @@ public interface CoordinatorInt extends Remote {
     List<String> getDepartments(String token) throws RemoteException, InvalidParameterException;
 
     List<String> getDepartmentFiles(String token, String department) throws RemoteException, InvalidParameterException;
+
+    boolean createFile(String token, byte[] content, String fullName) throws RemoteException;
+
+    byte[] getFile(String token, String name, String dep) throws RemoteException;
+
+    boolean updateFile(String token, byte[] content, String fullName) throws RemoteException;
+
+    boolean deleteFile(String token, String name, String dep) throws RemoteException;
+
+
 }
