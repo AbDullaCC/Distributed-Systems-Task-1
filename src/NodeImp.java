@@ -64,13 +64,13 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 
     @Override
     public synchronized boolean createFile(ActualFile actualFile) throws RemoteException {
-        if (actualFile == null || actualFile.getMeta() == null) {
+        if (actualFile == null || actualFile.meta == null) {
             System.err.println("Node " + id + ": Attempted to create a null file or file with null metadata.");
             return false;
         }
-        FileMeta meta = actualFile.getMeta();
-        String fileKey = getFileMapKey(meta.getDep(), meta.getName());
-        String filePath = getFileSystemPath(meta.getDep(), meta.getName());
+        FileMeta meta = actualFile.meta;
+        String fileKey = getFileMapKey(meta.dep, meta.name);
+        String filePath = getFileSystemPath(meta.dep, meta.name);
 
         System.out.println("Node " + id + ": Attempting to create file: " + fileKey + " at " + filePath);
 
@@ -80,7 +80,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         }
 
         try {
-            File directory = new File(this.storageBasePath + meta.getDep());
+            File directory = new File(this.storageBasePath + meta.dep);
             if (!directory.exists()) {
                 if (!directory.mkdirs()) {
                     System.err.println("Node " + id + ": Failed to create department directory: " + directory.getPath());
@@ -88,7 +88,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
                 }
             }
             // Write file content to the node's local filesystem
-            Files.write(Paths.get(filePath), actualFile.getFileContent(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            Files.write(Paths.get(filePath), actualFile.content, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
             // Store the ActualFile object (metadata + reference or content) in the map
             files.put(fileKey, actualFile);
             System.out.println("Node " + id + ": File " + fileKey + " created successfully.");
@@ -101,7 +101,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
     }
 
     @Override
-    public synchronized ActualFile getFile(String name, String dep) throws RemoteException {
+    public synchronized byte[] getFile(String name, String dep) throws RemoteException {
         String fileKey = getFileMapKey(dep, name);
         String filePath = getFileSystemPath(dep, name);
         System.out.println("Node " + id + ": Attempting to get file: " + fileKey);
@@ -118,9 +118,8 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
                 if (Files.exists(Paths.get(filePath))) {
                     byte[] content = Files.readAllBytes(Paths.get(filePath));
                     // Ensure the ActualFile object has the latest content
-                    actualFileFromMap.setFileContent(content);
                     System.out.println("Node " + id + ": File " + fileKey + " retrieved successfully (from map, content reloaded).");
-                    return actualFileFromMap;
+                    return content;
                 } else {
                     // File in map but not on disk: inconsistency
                     System.err.println("Node " + id + ": Inconsistency! File " + fileKey + " in map but not on disk at " + filePath);
@@ -141,13 +140,13 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
                     // We need FileMeta. For simplicity, let's assume if we find it on disk,
                     // we can reconstruct basic metadata or this scenario is for files already known.
                     // In a real system, metadata persistence would be crucial.
-                    List<String> nodeIds = new ArrayList<>(); // Placeholder
-                    nodeIds.add(this.id);
-                    FileMeta meta = new FileMeta(name, dep, nodeIds);
-                    ActualFile retrievedFile = new ActualFile(meta, content);
-                    files.put(fileKey, retrievedFile); // Add to map for future access
+//                    List<String> nodeIds = new ArrayList<>(); // Placeholder
+//                    nodeIds.add(this.id);
+//                    FileMeta meta = new FileMeta(name, dep, nodeIds);
+//                    ActualFile retrievedFile = new ActualFile(meta, content);
+//                    files.put(fileKey, retrievedFile); // Add to map for future access
                     System.out.println("Node " + id + ": File " + fileKey + " retrieved successfully (from disk, added to map).");
-                    return retrievedFile;
+                    return content;
                 }
             } catch (IOException e) {
                 System.err.println("Node " + id + ": Error reading file " + fileKey + " from filesystem: " + e.getMessage());
@@ -161,13 +160,13 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 
     @Override
     public synchronized boolean updateFile(ActualFile actualFile) throws RemoteException {
-        if (actualFile == null || actualFile.getMeta() == null) {
+        if (actualFile == null || actualFile.meta == null) {
             System.err.println("Node " + id + ": Attempted to update a null file or file with null metadata.");
             return false;
         }
-        FileMeta meta = actualFile.getMeta();
-        String fileKey = getFileMapKey(meta.getDep(), meta.getName());
-        String filePath = getFileSystemPath(meta.getDep(), meta.getName());
+        FileMeta meta = actualFile.meta;
+        String fileKey = getFileMapKey(meta.dep, meta.name);
+        String filePath = getFileSystemPath(meta.dep, meta.name);
         System.out.println("Node " + id + ": Attempting to update file: " + fileKey);
 
         if (!files.containsKey(fileKey) && !Files.exists(Paths.get(filePath))) {
@@ -177,12 +176,12 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 
         try {
             // Ensure department directory exists (it should if file exists, but good practice)
-            File directory = new File(this.storageBasePath + meta.getDep());
+            File directory = new File(this.storageBasePath + meta.dep);
             if (!directory.exists()) {
                 directory.mkdirs();
             }
             // Overwrite existing file content on the node's local filesystem
-            Files.write(Paths.get(filePath), actualFile.getFileContent(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+            Files.write(Paths.get(filePath), actualFile.content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
             // Update the ActualFile object in the map
             files.put(fileKey, actualFile);
             System.out.println("Node " + id + ": File " + fileKey + " updated successfully.");
@@ -264,7 +263,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
                 try {
                     if (Files.exists(Paths.get(filePath))) {
                         byte[] content = Files.readAllBytes(Paths.get(filePath));
-                        fileToClone.setFileContent(content); // Make sure content is up-to-date
+                        fileToClone.content=content; // Make sure content is up-to-date
                     } else {
                         System.err.println("Node " + id + ": File " + fileKeyToClone + " found in map but not on disk for cloning.");
                         return false;
@@ -283,7 +282,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
             if (parts.length == 2) {
                 String dep = parts[0];
                 String name = parts[1];
-                fileToClone = this.getFile(name, dep); // This method handles loading from disk
+                fileToClone.content = this.getFile(name, dep); // This method handles loading from disk
             } else {
                 System.err.println("Node " + id + ": Invalid file key format for cloning: " + fileKeyToClone);
                 return false;

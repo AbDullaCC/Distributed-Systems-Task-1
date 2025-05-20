@@ -19,7 +19,7 @@ public interface NodeInt extends Remote {
      * @return The ActualFile object if found, null otherwise.
      * @throws RemoteException if a remote communication error occurs.
      */
-    ActualFile getFile(String name, String dep) throws RemoteException;
+    byte[] getFile(String name, String dep) throws RemoteException;
 
     /**
      * Updates an existing file on this node.
