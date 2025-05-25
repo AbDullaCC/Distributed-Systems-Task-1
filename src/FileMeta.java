@@ -37,4 +37,8 @@ public class FileMeta {
     public List<String> getNodes() {
         return this.nodes.stream().toList();
     }
+
+    public String getFullName() {
+        return dep + '/' + name;
+    }
 }
