@@ -1,3 +1,4 @@
+import javax.naming.ServiceUnavailableException;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -7,28 +8,25 @@ import java.util.*;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
-    private static final List<String> departments = new ArrayList<>();
+    private final List<String> departments;
+    private final HashMap<String, Employee> employees;
+    private final HashMap<String, FileMeta> filesMeta;
+    private final HashMap<String, NodeInt> nodes;
+    private final HashSet<Map.Entry<String, String>> load;
+    private final HashMap<String, Employee> tokens;
 
-    private static HashMap<String, Employee> employees;
+    private final HashMap<String, Character> filesStatus; // 'R' or 'W'
 
-    private static HashMap<String, Employee> tokens;
-
-    private static HashMap<String, FileMeta> filesMeta;
-
-    private static HashMap<String, Character> filesStatus; // 'R' or 'W'
-
-    private static HashMap<String, NodeInt> nodes;
-
-    private static HashSet<Map.Entry<String, String>> load;
 
     protected CoordinatorImp() throws RemoteException {
         super();
-        departments.addAll(Arrays.asList("IT", "HR", "QA", "GRAPHICS", "SALES"));
+        departments = Arrays.asList("IT", "HR", "QA", "GRAPHICS", "SALES");
         employees = new HashMap<>();
         tokens = new HashMap<>();
         filesMeta = new HashMap<>();
         nodes = new HashMap<>();
         load = new HashSet<>();
+        filesStatus = new HashMap<>();
     }
 
     public static void main(String[] args) {
@@ -36,7 +34,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             CoordinatorImp coordinator = new CoordinatorImp();
             LocateRegistry.createRegistry(5000);
 
-            Naming.bind("rmi://localhost:5000" + "/coordinator", coordinator);
+            Naming.bind("rmi://localhost:5000/coordinator", coordinator);
             System.out.println("coordinator is running");
         } catch (Exception e) {
             System.out.println(e);
@@ -72,8 +70,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     }
 
     @Override
-    public boolean isValidToken(String token) throws RemoteException {
-        return TokenGenerator.isValidToken(token);
+    public boolean isValidToken(String token) throws RemoteException, InvalidParameterException {
+        if (!TokenGenerator.isValidToken(token)) throw new InvalidParameterException("Invalid token");
+        return true;
     }
 
     @Override
@@ -121,13 +120,19 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         return false;
     }
 
-
     private boolean nodesSync() {
         return false;
     }
 
-    private NodeInt getBestNode(List<String> nodes) {
-        return null;
+    private NodeInt getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
+        String bestNode = null;
+        for (Map.Entry<String, String> n : load) {
+            if (availableNodes.contains(availableNodes.getLast())) {
+                bestNode = availableNodes.getLast();
+            }
+        }
+        if (bestNode == null) throw new ServiceUnavailableException("No nodes available");
+        return nodes.get(bestNode);
     }
 
 }
