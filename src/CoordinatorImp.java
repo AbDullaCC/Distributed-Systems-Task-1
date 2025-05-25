@@ -98,24 +98,24 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     }
 
     @Override
-    public boolean fileCreateToken(String token, byte[] content, String fullName) throws RemoteException {
+    public boolean fileCreate(String token, byte[] content, String fullName) throws RemoteException {
         otherActionsAllowed(token, fullName.split(",")[0]);
         return false;
     }
 
     @Override
-    public byte[] fileGetTicket(String token, String name, String dep) throws RemoteException {
+    public byte[] fileGet(String token, String name, String dep) throws RemoteException {
         return null;
     }
 
     @Override
-    public boolean fileUpdateTicket(String token, byte[] content, String fullName) throws RemoteException {
+    public boolean fileUpdate(String token, byte[] content, String fullName) throws RemoteException {
         otherActionsAllowed(token, fullName.split(",")[0]);
         return false;
     }
 
     @Override
-    public boolean fileDeleteTicket(String token, String name, String dep) throws RemoteException {
+    public boolean fileDelete(String token, String name, String dep) throws RemoteException {
         otherActionsAllowed(token, dep);
         return false;
     }

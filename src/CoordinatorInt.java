@@ -15,13 +15,13 @@ public interface CoordinatorInt extends Remote {
 
     List<String> getDepartmentFiles(String token, String department) throws RemoteException, InvalidParameterException;
 
-    boolean fileCreateToken(String token, byte[] content, String fullName) throws RemoteException;
+    boolean fileCreate(String token, byte[] content, String fullName) throws RemoteException;
 
-    byte[] fileGetTicket(String token, String name, String dep) throws RemoteException;
+    byte[] fileGet(String token, String name, String dep) throws RemoteException;
 
-    boolean fileUpdateTicket(String token, byte[] content, String fullName) throws RemoteException;
+    boolean fileUpdate(String token, byte[] content, String fullName) throws RemoteException;
 
-    boolean fileDeleteTicket(String token, String name, String dep) throws RemoteException;
+    boolean fileDelete(String token, String name, String dep) throws RemoteException;
 
 
 }
