@@ -15,6 +15,8 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     private static HashMap<String, FileMeta> filesMeta;
 
+    private static HashMap<String, Character> filesStatus; // 'R' or 'W'
+
     private static HashMap<String, NodeInt> nodes;
 
     private static HashSet<Map.Entry<String, String>> load;
@@ -41,15 +43,14 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         }
     }
 
-    private String addEmployee(String username, String password, List<String> roles) {
+    private boolean addEmployee(String username, String password, List<String> roles) {
         Employee existsEmployee = employees.get(username);
         if (existsEmployee != null) {
             throw new InvalidParameterException("Username exists");
         }
         Employee employee = new Employee(username, password, roles);
-        String token = generateToken(employee);
-        employees.put(token, employee);
-        return token;
+        employees.put(username, employee);
+        return true;
     }
 
     @Override
