@@ -60,8 +60,8 @@ public class NodeClient {
             System.out.println("\nAttempting to retrieve the file...");
             ActualFile retrievedFile = node.getFile(fileName, department);
             if (retrievedFile != null) {
-                System.out.println("Retrieved file: " + retrievedFile.getMeta().getName());
-                System.out.println("Content: " + new String(retrievedFile.getFileContent()));
+                System.out.println("Retrieved file: " + retrievedFile.meta.name);
+                System.out.println("Content: " + new String(retrievedFile.content));
             } else {
                 System.out.println("Could not retrieve file '" + fileName + "'.");
             }
@@ -83,7 +83,7 @@ public class NodeClient {
                 System.out.println("File '" + fileName + "' updated successfully.");
                 ActualFile fetchedAfterUpdate = node.getFile(fileName, department);
                 if (fetchedAfterUpdate != null) {
-                    System.out.println("Content after update: " + new String(fetchedAfterUpdate.getFileContent()));
+                    System.out.println("Content after update: " + new String(fetchedAfterUpdate.content));
                 }
             } else {
                 System.out.println("Failed to update file '" + fileName + "'.");
