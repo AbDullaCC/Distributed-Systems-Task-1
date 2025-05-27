@@ -16,13 +16,13 @@ public interface CoordinatorInt extends Remote {
 
     List<String> getDepartmentFiles(String token, String department) throws RemoteException, InvalidParameterException;
 
-    boolean fileCreate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException;
+    boolean fileCreate(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException, InvalidParameterException;
 
-    boolean fileGet(String token, String group, int port, String name, String dep) throws RemoteException, ServiceUnavailableException;
+    boolean fileGet(String token, String ip, int port, String name, String dep) throws RemoteException, ServiceUnavailableException, InvalidParameterException;
 
-    boolean fileUpdate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException;
+    boolean fileUpdate(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException;
 
-    boolean fileDelete(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException;
+    boolean fileDelete(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException;
 
 
 }
