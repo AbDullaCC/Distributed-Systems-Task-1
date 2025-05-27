@@ -18,7 +18,7 @@ public interface CoordinatorInt extends Remote {
 
     boolean fileCreate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException;
 
-    byte[] fileGet(String token, String name, String dep) throws RemoteException;
+    boolean fileGet(String token, String group, int port, String name, String dep) throws RemoteException, ServiceUnavailableException;
 
     boolean fileUpdate(String token, byte[] content, String fullName) throws RemoteException;
 

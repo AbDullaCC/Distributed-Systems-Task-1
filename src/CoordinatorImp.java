@@ -128,14 +128,19 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     public boolean fileCreate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException {
         otherActionsAllowed(token, fullName.split(",")[0]);
         checkRWAccess(fullName);
-        myThread th = new myThread(group, port, fullName, nodes.keySet().stream().toList());
+        CreateThread th = new CreateThread(group, port, fullName, nodes.keySet().stream().toList());
         th.start();
         return true;
     }
 
     @Override
-    public byte[] fileGet(String token, String name, String dep) throws RemoteException {
-        return null;
+    public boolean fileGet(String token, String group, int port, String name, String dep) throws RemoteException, ServiceUnavailableException {
+        String fullName = dep + "/" + name;
+        otherActionsAllowed(token, fullName.split(",")[0]);
+        checkRWAccess(fullName);
+        GetThread th = new GetThread(group, port, fullName, nodes.keySet().stream().toList());
+        th.start();
+        return true;
     }
 
     @Override
@@ -156,13 +161,44 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
 }
 
-class myThread extends Thread {
+class CreateThread extends Thread {
     String group;
     int port;
     String fullName;
     List<String> nodes;
 
-    public myThread(String group, int port, String fullName, List<String> nodes) {
+    public CreateThread(String group, int port, String fullName, List<String> nodes) {
+        this.group = group;
+        this.port = port;
+        this.fullName = fullName;
+        this.nodes = nodes;
+    }
+
+    @Override
+    public void run() {
+        NodeInt node = null;
+        try {
+            node = CoordinatorImp.getBestNode(nodes);
+            CoordinatorImp.increaseLoad(node);
+            node.getFile(group, port, fullName);
+            CoordinatorImp.decreaseLoad(node);
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+
+
+class GetThread extends Thread {
+    String group;
+    int port;
+    String fullName;
+    List<String> nodes;
+
+    public GetThread(String group, int port, String fullName, List<String> nodes) {
         this.group = group;
         this.port = port;
         this.fullName = fullName;
