@@ -1,6 +1,13 @@
+import javax.crypto.SecretKey;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.security.InvalidParameterException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -103,15 +110,15 @@ public class Client {
             case 1:
                 this.downloadFile(department);
                 break;
-            case 2:
-                this.uploadFile(department);
-                break;
-            case 3:
-                this.updateFile(department);
-                break;
-            case 4:
-                this.deleteFile(department);
-                break;
+//            case 2:
+//                this.uploadFile(department);
+//                break;
+//            case 3:
+//                this.updateFile(department);
+//                break;
+//            case 4:
+//                this.deleteFile(department);
+//                break;
             default:
                 throw new IllegalArgumentException("Invalid action, something went wrong");
         }
@@ -124,7 +131,24 @@ public class Client {
         System.out.println("Available files to download: ");
         int choice = this.getUserChoice(fileNames);
 
+        String fileName = fileNames.get(choice - 1);
 
+        try (ServerSocket socket = new ServerSocket(8000)) {  // 0 = auto-pick port
+            int port = socket.getLocalPort();
+
+            coordinator.getFile(token, fileName, department, "localhost", port);
+
+            Socket nodeConnection = socket.accept();
+
+            try (InputStream fileStream = nodeConnection.getInputStream();
+                 FileOutputStream fileOut = new FileOutputStream(fileName)) {
+
+                // Step 3: Receive file directly
+                fileStream.transferTo(fileOut);  // Java 9+
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private List<String> getDepartmentFiles(String department) throws RemoteException {
@@ -143,7 +167,7 @@ public class Client {
         int choice;
         while (true) {
             choice = scanner.nextInt();
-            if(choice >= 0 && choice < options.size()) break;
+            if(choice >= 0 && choice <= options.size()) break;
             System.out.println("Please choose a valid choice number, or terminate the app: ");
         }
 
@@ -154,11 +178,12 @@ public class Client {
 
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
 
         try {
             CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://localhost:5000/coordinator");
             Client client = new Client(coordinator);
+
             client.run();
         }
         catch (Exception exception){
