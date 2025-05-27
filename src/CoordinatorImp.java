@@ -15,9 +15,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     static final HashMap<String, Integer> load = new HashMap<>();
     static final HashMap<String, NodeInt> nodes = new HashMap<>();
     private static final HashMap<String, Character> filesStatus = new HashMap<>(); // 'R' or 'W'
+    private static final HashMap<String, FileMeta> filesMeta = new HashMap<>();
     private final List<String> departments;
     private final HashMap<String, Employee> employees;
-    private final HashMap<String, FileMeta> filesMeta;
     private final HashMap<String, Employee> tokens;
 
     protected CoordinatorImp() throws RemoteException {
@@ -25,7 +25,6 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         departments = Arrays.asList("IT", "HR", "QA", "GRAPHICS", "SALES");
         employees = new HashMap<>();
         tokens = new HashMap<>();
-        filesMeta = new HashMap<>();
     }
 
     public static void main(String[] args) {
@@ -41,7 +40,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
             CoordinatorImp.load.put("Node1", 0);
 
-            coordinator.filesMeta.put("IT/testFile.txt", new FileMeta("testFile.txt", "IT", List.of("Node1")));
+            CoordinatorImp.filesMeta.put("IT/testFile.txt", new FileMeta("testFile.txt", "IT", List.of("Node1")));
 
             System.out.println("coordinator is running");
         } catch (Exception e) {
@@ -62,18 +61,41 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         return nodes.get(bestNode);
     }
 
-    public static synchronized void control(boolean increaseLoad, boolean isWrite, NodeInt node, String fullName) throws RemoteException {
-        String nodeId = node.getNodeId();
-        if (increaseLoad) {
+    public synchronized static void increaseLoad(NodeInt node) throws RemoteException {
+        synchronized (load) {
+            String nodeId = node.getNodeId();
             load.put(nodeId, load.get(nodeId) + 1);
-            if (isWrite) {
-                filesStatus.put(fullName, 'W');
-            } else {
-                filesStatus.put(fullName, 'R');
-            }
-        } else {
+        }
+    }
+
+    public synchronized static void decreaseLoad(NodeInt node) throws RemoteException {
+        synchronized (load) {
+            String nodeId = node.getNodeId();
             load.put(nodeId, load.get(nodeId) - 1);
+        }
+    }
+
+    public synchronized static void makeRead(String fullName) throws RemoteException {
+        synchronized (filesStatus) {
+            filesStatus.put(fullName, 'R');
+        }
+    }
+
+    public synchronized static void makeWrite(String fullName) throws RemoteException {
+        synchronized (load) {
+            filesStatus.put(fullName, 'W');
+        }
+    }
+
+    public synchronized static void removeStatus(String fullName) throws RemoteException {
+        synchronized (load) {
             filesStatus.remove(fullName);
+        }
+    }
+
+    public synchronized static void deleteFile(String fullName) throws RemoteException {
+        synchronized (filesMeta) {
+            filesMeta.get(fullName).removeNodes(filesMeta.get(fullName).getNodes());
         }
     }
 
@@ -219,9 +241,11 @@ class CreateThread extends Thread {
         NodeInt node = null;
         try {
             node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.control(true, true, node, fullName);
+            CoordinatorImp.increaseLoad(node);
+            CoordinatorImp.makeWrite(fullName);
             node.getFile(ip, port, fullName);
-            CoordinatorImp.control(false, true, node, fullName);
+            CoordinatorImp.decreaseLoad(node);
+            CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
@@ -246,9 +270,11 @@ class GetThread extends Thread {
         NodeInt node = null;
         try {
             node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.control(true, false, node, fullName);
+            CoordinatorImp.increaseLoad(node);
+            CoordinatorImp.makeRead(fullName);
             node.getFile(ip, port, fullName);
-            CoordinatorImp.control(false, false, node, fullName);
+            CoordinatorImp.decreaseLoad(node);
+            CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
@@ -273,9 +299,11 @@ class UpdateThread extends Thread {
         NodeInt node = null;
         try {
             node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.control(true, true, node, fullName);
+            CoordinatorImp.increaseLoad(node);
+            CoordinatorImp.makeWrite(fullName);
             node.updateFile(ip, port, fullName);
-            CoordinatorImp.control(false, true, node, fullName);
+            CoordinatorImp.decreaseLoad(node);
+            CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
@@ -300,9 +328,12 @@ class DeleteThread extends Thread {
         NodeInt node = null;
         try {
             node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.control(true, true, node, fullName);
+            CoordinatorImp.increaseLoad(node);
+            CoordinatorImp.makeWrite(fullName);
             node.deleteFile(ip, port, fullName);
-            CoordinatorImp.control(false, true, node, fullName);
+            CoordinatorImp.decreaseLoad(node);
+            CoordinatorImp.removeStatus(fullName);
+            CoordinatorImp.deleteFile(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
