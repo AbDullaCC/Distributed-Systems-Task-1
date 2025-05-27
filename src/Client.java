@@ -1,24 +1,19 @@
-import javax.crypto.SecretKey;
 import javax.naming.ServiceUnavailableException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.security.InvalidParameterException;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Client {
 
     private String token;
     private final CoordinatorInt coordinator;
     private final Scanner scanner;
+    private final String userUploadPath = "storage/upload/";
+    private final String userDownloadPath = "storage/downloads/";
 
     public Client(CoordinatorInt coordinator) {
         this.coordinator = coordinator;
@@ -120,9 +115,9 @@ public class Client {
             case 1:
                 this.downloadFile(department);
                 break;
-//            case 2:
-//                this.uploadFile(department);
-//                break;
+            case 2:
+                this.uploadFile(department);
+                break;
 //            case 3:
 //                this.updateFile(department);
 //                break;
@@ -136,30 +131,64 @@ public class Client {
 
     private void downloadFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
 
-        List<String> fileNames = this.getDepartmentFiles(department);
+        String fileName = getFilenameFromUserChoice(
+                this.getDepartmentFiles(department),
+                "Available files to download: ");
 
-        System.out.println("Available files to download: ");
-        int choice = this.getUserChoice(fileNames);
-
-        String fileName = fileNames.get(choice - 1);
-
-        try (ServerSocket socket = new ServerSocket(8000)) {  // 0 = auto-pick port
+        try (ServerSocket socket = new ServerSocket(8000);
+        ) {
             int port = socket.getLocalPort();
 
             coordinator.fileGet(token, "localhost", port, fileName, department);
 
-            Socket nodeConnection = socket.accept();
+            try (Socket nodeConnection = socket.accept();
+                 InputStream fileStream = nodeConnection.getInputStream();
+                 FileOutputStream fileOut = new FileOutputStream(userDownloadPath + fileName)){
 
-             InputStream fileStream = nodeConnection.getInputStream();
-             FileOutputStream fileOut = new FileOutputStream(fileName);
+                fileStream.transferTo(fileOut);
+            }
 
-            fileStream.transferTo(fileOut);
-            
-            fileOut.close();
+
         } catch (IOException | ServiceUnavailableException e) {
             throw new RuntimeException(e);
         }
     }
+
+    private void uploadFile(String department) throws InvalidParameterException, IllegalStateException{
+
+        List<String> fileNames = getFilesFromUploadDirectory();
+
+        String fileName = getFilenameFromUserChoice(
+                fileNames,
+                "Available files to upload (files in " + userUploadPath + " ): ");
+
+        try (ServerSocket socket = new ServerSocket(8000)) {
+            int port = socket.getLocalPort();
+
+            String fullName = department + File.separator + fileName;
+
+            coordinator.fileCreate(token, "localhost", port, fullName);
+
+            try (Socket nodeConnection = socket.accept();
+                 OutputStream nodeOut = nodeConnection.getOutputStream();
+                 FileInputStream fileIn = new FileInputStream(userUploadPath + fileName)) {
+
+                fileIn.transferTo(nodeOut);
+            }
+
+        } catch (IOException | ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+//    private void updateFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+//
+//        String fileName = getFilenameFromUserChoice(
+//                getDepartmentFiles(department),
+//                "Choose the File that you want to update: ");
+//
+//
+//    }
 
     private List<String> getDepartmentFiles(String department) throws RemoteException {
         return this.coordinator.getDepartmentFiles(token, department);
@@ -186,13 +215,28 @@ public class Client {
         return choice;
     }
 
+    private String getFilenameFromUserChoice(List<String> fileNames, String header){
 
+        System.out.println(header);
+        int choice = this.getUserChoice(fileNames);
+
+        return fileNames.get(choice - 1);
+    }
+
+    private List<String> getFilesFromUploadDirectory() {
+        File directory = new File(this.userUploadPath);
+        return Arrays.asList(Objects.requireNonNull(directory.list()));
+    }
 
     public static void main(String[] args) throws Exception {
 
         try {
             CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://localhost:5000/coordinator");
             Client client = new Client(coordinator);
+            File uploadDir = new File(client.userUploadPath);
+            File downloadDir = new File(client.userDownloadPath);
+            uploadDir.mkdirs();
+            downloadDir.mkdirs();
 
             client.run();
         }

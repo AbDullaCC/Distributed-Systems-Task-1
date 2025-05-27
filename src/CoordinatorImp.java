@@ -31,7 +31,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         try {
 
             CoordinatorImp coordinator = new CoordinatorImp();
-            coordinator.addEmployee("asd", "asd", List.of("MANAGER"));
+            coordinator.addEmployee("asd", "asd", List.of("IT"));
 
 
             Naming.rebind("rmi://localhost:5000/coordinator", coordinator);
@@ -301,7 +301,7 @@ class UpdateThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-            node.updateFile(ip, port, fullName);
+//            node.updateFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
@@ -330,7 +330,7 @@ class DeleteThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-            node.deleteFile(ip, port, fullName);
+//            node.deleteFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
             CoordinatorImp.deleteFile(fullName);
