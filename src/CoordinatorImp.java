@@ -49,10 +49,11 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     public static NodeInt getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
         String bestNode = null;
+        int min = Integer.MAX_VALUE;
         for (Map.Entry<String, Integer> a : load.entrySet()) {
-            if (availableNodes.contains(a.getKey())) {
+            if (a.getValue() < min && availableNodes.contains(a.getKey())) {
                 bestNode = a.getKey();
-                break;
+                min = a.getValue();
             }
         }
         if (bestNode == null) throw new ServiceUnavailableException("No nodes available");
