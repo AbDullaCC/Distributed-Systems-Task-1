@@ -1,3 +1,4 @@
+import javax.naming.ServiceUnavailableException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.security.InvalidParameterException;
@@ -15,7 +16,7 @@ public interface CoordinatorInt extends Remote {
 
     List<String> getDepartmentFiles(String token, String department) throws RemoteException, InvalidParameterException;
 
-    boolean fileCreate(String token, byte[] content, String fullName) throws RemoteException;
+    boolean fileCreate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException;
 
     byte[] fileGet(String token, String name, String dep) throws RemoteException;
 

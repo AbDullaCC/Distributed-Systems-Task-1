@@ -4,19 +4,20 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
+    static final HashMap<String, Integer> load = new HashMap<>();
+    static final HashMap<String, NodeInt> nodes = new HashMap<>();
     private final List<String> departments;
     private final HashMap<String, Employee> employees;
     private final HashMap<String, FileMeta> filesMeta;
-    private final HashMap<String, NodeInt> nodes;
-    private final HashSet<Map.Entry<String, String>> load;
     private final HashMap<String, Employee> tokens;
-
     private final HashMap<String, Character> filesStatus; // 'R' or 'W'
-
 
     protected CoordinatorImp() throws RemoteException {
         super();
@@ -24,8 +25,6 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         employees = new HashMap<>();
         tokens = new HashMap<>();
         filesMeta = new HashMap<>();
-        nodes = new HashMap<>();
-        load = new HashSet<>();
         filesStatus = new HashMap<>();
     }
 
@@ -39,6 +38,28 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         } catch (Exception e) {
             System.out.println(e);
         }
+    }
+
+    public static NodeInt getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
+        String bestNode = null;
+        for (Map.Entry<String, Integer> a : load.entrySet()) {
+            if (availableNodes.contains(a.getKey())) {
+                bestNode = a.getKey();
+                break;
+            }
+        }
+        if (bestNode == null) throw new ServiceUnavailableException("No nodes available");
+        return nodes.get(bestNode);
+    }
+
+    public static void increaseLoad(NodeInt node) throws RemoteException {
+        String nodeId = node.getNodeId();
+        load.put(nodeId, load.get(nodeId) + 1);
+    }
+
+    public static void decreaseLoad(NodeInt node) throws RemoteException {
+        String nodeId = node.getNodeId();
+        load.put(nodeId, load.get(nodeId) - 1);
     }
 
     private boolean addEmployee(String username, String password, List<String> roles) {
@@ -75,6 +96,12 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         return true;
     }
 
+    public void checkRWAccess(String fullName) throws ServiceUnavailableException {
+        if (filesStatus.get(fullName) != null) {
+            throw new ServiceUnavailableException("Someone is " + (filesStatus.get(fullName) == 'R' ? "reading" : "writing"));
+        }
+    }
+
     @Override
     public boolean otherActionsAllowed(String token, String department) throws RemoteException {
         isValidToken(token);
@@ -98,9 +125,12 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     }
 
     @Override
-    public boolean fileCreate(String token, byte[] content, String fullName) throws RemoteException {
+    public boolean fileCreate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException {
         otherActionsAllowed(token, fullName.split(",")[0]);
-        return false;
+        checkRWAccess(fullName);
+        myThread th = new myThread(group, port, fullName, nodes.keySet().stream().toList());
+        th.start();
+        return true;
     }
 
     @Override
@@ -124,15 +154,34 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         return false;
     }
 
-    private NodeInt getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
-        String bestNode = null;
-        for (Map.Entry<String, String> n : load) {
-            if (availableNodes.contains(availableNodes.getLast())) {
-                bestNode = availableNodes.getLast();
-            }
-        }
-        if (bestNode == null) throw new ServiceUnavailableException("No nodes available");
-        return nodes.get(bestNode);
+}
+
+class myThread extends Thread {
+    String group;
+    int port;
+    String fullName;
+    List<String> nodes;
+
+    public myThread(String group, int port, String fullName, List<String> nodes) {
+        this.group = group;
+        this.port = port;
+        this.fullName = fullName;
+        this.nodes = nodes;
     }
 
+    @Override
+    public void run() {
+        NodeInt node = null;
+        try {
+            node = CoordinatorImp.getBestNode(nodes);
+            CoordinatorImp.increaseLoad(node);
+            node.getFile(group, port, fullName);
+            CoordinatorImp.decreaseLoad(node);
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
+
