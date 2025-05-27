@@ -1,5 +1,7 @@
 import javax.naming.ServiceUnavailableException;
+import java.net.MalformedURLException;
 import java.rmi.Naming;
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
@@ -73,6 +75,13 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             load.put(nodeId, load.get(nodeId) - 1);
             filesStatus.remove(fullName);
         }
+    }
+
+    @Override
+    public void addNode(String id) throws RemoteException, MalformedURLException, NotBoundException {
+        NodeInt node1 = (NodeInt) Naming.lookup("rmi://localhost:5000/" + id);
+        CoordinatorImp.nodes.put(id, node1);
+        CoordinatorImp.load.put(id, 0);
     }
 
     private boolean addEmployee(String username, String password, List<String> roles) {

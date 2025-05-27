@@ -1,4 +1,6 @@
 import javax.naming.ServiceUnavailableException;
+import java.net.MalformedURLException;
+import java.rmi.NotBoundException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.security.InvalidParameterException;
@@ -24,5 +26,6 @@ public interface CoordinatorInt extends Remote {
 
     boolean fileDelete(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException;
 
+    void addNode(String id) throws RemoteException, MalformedURLException, NotBoundException;
 
 }
