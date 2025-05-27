@@ -1,8 +1,12 @@
 
 import java.io.*;
+import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.rmi.AlreadyBoundException;
+import java.rmi.Naming;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 
 import java.nio.file.Files;
@@ -18,7 +22,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         this.id = nodeId;
 
 
-        this.storageBasePath = "../storage/"+nodeId + "/";
+        this.storageBasePath = "storage/"+nodeId + "/";
         File storageDir = new File(this.storageBasePath);
         if (!storageDir.exists()) {
             if (storageDir.mkdirs()) {
@@ -203,5 +207,14 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         }
     }
 
-
+    public static void main(String[] args) throws RemoteException {
+        try {
+            NodeImp node = new NodeImp("Node1");
+            LocateRegistry.createRegistry(5000);
+            Naming.rebind("rmi://localhost:5000/node1", node);
+            System.out.println(node.id + "is running");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

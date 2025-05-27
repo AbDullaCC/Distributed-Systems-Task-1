@@ -30,7 +30,7 @@ public class Client {
         boolean working = true;
         while (working) {
             //Not logged in
-            if (!coordinator.isValidToken(token)){
+            if (!isLoggedIn()){
                 try {
                     this.token = this.login();
                 }
@@ -59,6 +59,15 @@ public class Client {
                 }
 
             }
+        }
+    }
+
+    private boolean isLoggedIn() {
+        try {
+            coordinator.isValidToken(token);
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -141,12 +150,12 @@ public class Client {
 
             Socket nodeConnection = socket.accept();
 
-            try (InputStream fileStream = nodeConnection.getInputStream();
-                 FileOutputStream fileOut = new FileOutputStream(fileName)) {
+             InputStream fileStream = nodeConnection.getInputStream();
+             FileOutputStream fileOut = new FileOutputStream(fileName);
 
-                // Step 3: Receive file directly
-                fileStream.transferTo(fileOut);  // Java 9+
-            }
+            fileStream.transferTo(fileOut);
+            
+            fileOut.close();
         } catch (IOException | ServiceUnavailableException e) {
             throw new RuntimeException(e);
         }

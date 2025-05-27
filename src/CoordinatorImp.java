@@ -30,10 +30,19 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     public static void main(String[] args) {
         try {
-            CoordinatorImp coordinator = new CoordinatorImp();
-            LocateRegistry.createRegistry(5000);
 
-            Naming.bind("rmi://localhost:5000/coordinator", coordinator);
+            CoordinatorImp coordinator = new CoordinatorImp();
+            coordinator.addEmployee("asd","asd", List.of("MANAGER"));
+
+
+            Naming.rebind("rmi://localhost:5000/coordinator", coordinator);
+            NodeInt node1 = (NodeInt) Naming.lookup("rmi://localhost:5000/node1");
+            CoordinatorImp.nodes.put("Node1", node1);
+
+            CoordinatorImp.load.put("Node1", 0);
+
+            coordinator.filesMeta.put("IT/testFile.txt", new FileMeta("testFile.txt", "IT", List.of("Node1")));
+
             System.out.println("coordinator is running");
         } catch (Exception e) {
             System.out.println(e);
@@ -125,10 +134,10 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     }
 
     @Override
-    public boolean fileCreate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException {
+    public boolean fileCreate(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException {
         otherActionsAllowed(token, fullName.split(",")[0]);
         checkRWAccess(fullName);
-        CreateThread th = new CreateThread(group, port, fullName, nodes.keySet().stream().toList());
+        CreateThread th = new CreateThread(ip, port, fullName, nodes.keySet().stream().toList());
         th.start();
         return true;
     }
@@ -162,13 +171,13 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 }
 
 class CreateThread extends Thread {
-    String group;
+    String ip;
     int port;
     String fullName;
     List<String> nodes;
 
-    public CreateThread(String group, int port, String fullName, List<String> nodes) {
-        this.group = group;
+    public CreateThread(String ip, int port, String fullName, List<String> nodes) {
+        this.ip = ip;
         this.port = port;
         this.fullName = fullName;
         this.nodes = nodes;
@@ -180,11 +189,9 @@ class CreateThread extends Thread {
         try {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
-            node.getFile(group, port, fullName);
+            node.getFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
-        } catch (ServiceUnavailableException e) {
-            throw new RuntimeException(e);
-        } catch (RemoteException e) {
+        } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
     }
@@ -193,13 +200,13 @@ class CreateThread extends Thread {
 
 
 class GetThread extends Thread {
-    String group;
+    String ip;
     int port;
     String fullName;
     List<String> nodes;
 
-    public GetThread(String group, int port, String fullName, List<String> nodes) {
-        this.group = group;
+    public GetThread(String ip, int port, String fullName, List<String> nodes) {
+        this.ip = ip;
         this.port = port;
         this.fullName = fullName;
         this.nodes = nodes;
@@ -211,7 +218,7 @@ class GetThread extends Thread {
         try {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
-            node.getFile(group, port, fullName);
+            node.getFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
         } catch (ServiceUnavailableException e) {
             throw new RuntimeException(e);
