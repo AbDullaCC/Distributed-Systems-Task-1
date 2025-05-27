@@ -128,6 +128,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     public boolean fileCreate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException {
         otherActionsAllowed(token, fullName.split(",")[0]);
         checkRWAccess(fullName);
+        // exists and not deleted
+        if (filesMeta.containsKey(fullName) && !filesMeta.get(fullName).getNodes().isEmpty())
+            throw new IllegalArgumentException();
         CreateThread th = new CreateThread(group, port, fullName, nodes.keySet().stream().toList());
         th.start();
         return true;
@@ -136,23 +139,38 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     @Override
     public boolean fileGet(String token, String group, int port, String name, String dep) throws RemoteException, ServiceUnavailableException {
         String fullName = dep + "/" + name;
-        otherActionsAllowed(token, fullName.split(",")[0]);
+        isValidToken(token);
         checkRWAccess(fullName);
+        // don't exist or exists but deleted
+        if (!filesMeta.containsKey(fullName) || (filesMeta.containsKey(fullName) && filesMeta.get(fullName).getNodes().isEmpty()))
+            throw new IllegalArgumentException();
         GetThread th = new GetThread(group, port, fullName, nodes.keySet().stream().toList());
         th.start();
         return true;
     }
 
     @Override
-    public boolean fileUpdate(String token, byte[] content, String fullName) throws RemoteException {
+    public boolean fileUpdate(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException {
         otherActionsAllowed(token, fullName.split(",")[0]);
-        return false;
+        checkRWAccess(fullName);
+        // don't exist or exists but deleted
+        if (!filesMeta.containsKey(fullName) || (filesMeta.containsKey(fullName) && filesMeta.get(fullName).getNodes().isEmpty()))
+            throw new IllegalArgumentException();
+        UpdateThread th = new UpdateThread(group, port, fullName, nodes.keySet().stream().toList());
+        th.start();
+        return true;
     }
 
     @Override
-    public boolean fileDelete(String token, String name, String dep) throws RemoteException {
-        otherActionsAllowed(token, dep);
-        return false;
+    public boolean fileDelete(String token, String group, int port, String fullName) throws RemoteException, ServiceUnavailableException {
+        otherActionsAllowed(token, fullName.split(",")[0]);
+        checkRWAccess(fullName);
+        // don't exist or exists but deleted
+        if (!filesMeta.containsKey(fullName) || (filesMeta.containsKey(fullName) && filesMeta.get(fullName).getNodes().isEmpty()))
+            throw new IllegalArgumentException();
+        DeleteThread th = new DeleteThread(group, port, fullName, nodes.keySet().stream().toList());
+        th.start();
+        return true;
     }
 
     private boolean nodesSync() {
@@ -182,14 +200,11 @@ class CreateThread extends Thread {
             CoordinatorImp.increaseLoad(node);
             node.getFile(group, port, fullName);
             CoordinatorImp.decreaseLoad(node);
-        } catch (ServiceUnavailableException e) {
-            throw new RuntimeException(e);
-        } catch (RemoteException e) {
+        } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
     }
 }
-
 
 
 class GetThread extends Thread {
@@ -213,11 +228,64 @@ class GetThread extends Thread {
             CoordinatorImp.increaseLoad(node);
             node.getFile(group, port, fullName);
             CoordinatorImp.decreaseLoad(node);
-        } catch (ServiceUnavailableException e) {
-            throw new RuntimeException(e);
-        } catch (RemoteException e) {
+        } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
     }
 }
 
+
+class UpdateThread extends Thread {
+    String group;
+    int port;
+    String fullName;
+    List<String> nodes;
+
+    public UpdateThread(String group, int port, String fullName, List<String> nodes) {
+        this.group = group;
+        this.port = port;
+        this.fullName = fullName;
+        this.nodes = nodes;
+    }
+
+    @Override
+    public void run() {
+        NodeInt node = null;
+        try {
+            node = CoordinatorImp.getBestNode(nodes);
+            CoordinatorImp.increaseLoad(node);
+            node.updateFile(group, port, fullName);
+            CoordinatorImp.decreaseLoad(node);
+        } catch (ServiceUnavailableException | RemoteException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+
+class DeleteThread extends Thread {
+    String group;
+    int port;
+    String fullName;
+    List<String> nodes;
+
+    public DeleteThread(String group, int port, String fullName, List<String> nodes) {
+        this.group = group;
+        this.port = port;
+        this.fullName = fullName;
+        this.nodes = nodes;
+    }
+
+    @Override
+    public void run() {
+        NodeInt node = null;
+        try {
+            node = CoordinatorImp.getBestNode(nodes);
+            CoordinatorImp.increaseLoad(node);
+            node.deleteFile(group, port, fullName);
+            CoordinatorImp.decreaseLoad(node);
+        } catch (ServiceUnavailableException | RemoteException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
