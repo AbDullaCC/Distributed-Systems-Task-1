@@ -134,11 +134,11 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     }
 
     @Override
-    public boolean fileGet(String token, String group, int port, String name, String dep) throws RemoteException, ServiceUnavailableException {
+    public boolean fileGet(String token, String ip, int port, String name, String dep) throws RemoteException, ServiceUnavailableException {
         String fullName = dep + "/" + name;
         otherActionsAllowed(token, fullName.split(",")[0]);
         checkRWAccess(fullName);
-        GetThread th = new GetThread(group, port, fullName, nodes.keySet().stream().toList());
+        GetThread th = new GetThread(ip, port, fullName, nodes.keySet().stream().toList());
         th.start();
         return true;
     }

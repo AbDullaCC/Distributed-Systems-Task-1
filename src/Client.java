@@ -1,4 +1,5 @@
 import javax.crypto.SecretKey;
+import javax.naming.ServiceUnavailableException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -136,7 +137,7 @@ public class Client {
         try (ServerSocket socket = new ServerSocket(8000)) {  // 0 = auto-pick port
             int port = socket.getLocalPort();
 
-            coordinator.getFile(token, fileName, department, "localhost", port);
+            coordinator.fileGet(token, "localhost", port, fileName, department);
 
             Socket nodeConnection = socket.accept();
 
@@ -146,7 +147,7 @@ public class Client {
                 // Step 3: Receive file directly
                 fileStream.transferTo(fileOut);  // Java 9+
             }
-        } catch (IOException e) {
+        } catch (IOException | ServiceUnavailableException e) {
             throw new RuntimeException(e);
         }
     }
