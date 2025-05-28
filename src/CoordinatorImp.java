@@ -1,4 +1,5 @@
 import javax.naming.ServiceUnavailableException;
+import java.io.File;
 import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
@@ -28,7 +29,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         try {
 
             CoordinatorImp coordinator = new CoordinatorImp();
-            coordinator.addEmployee("asd", "asd", List.of("MANAGER"));
+            coordinator.addEmployee("asd", "asd", List.of("IT"));
 
 
             Naming.rebind("rmi://localhost:5000/coordinator", coordinator);
@@ -167,7 +168,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     @Override
     public boolean fileCreate(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException {
-        otherActionsAllowed(token, fullName.split(",")[0]);
+        otherActionsAllowed(token, fullName.split("/")[0]);
         checkRWAccess(fullName);
         // exists and not deleted
         if (filesMeta.containsKey(fullName) && !filesMeta.get(fullName).getNodes().isEmpty())
@@ -203,13 +204,13 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     }
 
     @Override
-    public boolean fileDelete(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException {
+    public boolean fileDelete(String token, String fullName) throws RemoteException, ServiceUnavailableException {
         otherActionsAllowed(token, fullName.split(",")[0]);
         checkRWAccess(fullName);
         // don't exist or exists but deleted
         if (!filesMeta.containsKey(fullName) || (filesMeta.containsKey(fullName) && filesMeta.get(fullName).getNodes().isEmpty()))
             throw new IllegalArgumentException();
-        DeleteThread th = new DeleteThread(ip, port, fullName, nodes.keySet().stream().toList());
+        DeleteThread th = new DeleteThread(fullName, nodes.keySet().stream().toList());
         th.start();
         return true;
     }
@@ -309,7 +310,7 @@ class UpdateThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-            node.updateFile(ip, port, fullName);
+//            node.updateFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
@@ -324,9 +325,7 @@ class DeleteThread extends Thread {
     String fullName;
     List<String> nodes;
 
-    public DeleteThread(String ip, int port, String fullName, List<String> nodes) {
-        this.ip = ip;
-        this.port = port;
+    public DeleteThread(String fullName, List<String> nodes) {
         this.fullName = fullName;
         this.nodes = nodes;
     }
@@ -338,7 +337,7 @@ class DeleteThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-            node.deleteFile(ip, port, fullName);
+//            node.deleteFile(fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
             CoordinatorImp.deleteFile(fullName);

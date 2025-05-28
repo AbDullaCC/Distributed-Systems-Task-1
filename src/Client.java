@@ -1,24 +1,19 @@
-import javax.crypto.SecretKey;
 import javax.naming.ServiceUnavailableException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.security.InvalidParameterException;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Client {
 
     private String token;
     private final CoordinatorInt coordinator;
     private final Scanner scanner;
+    private final String userUploadPath = "storage/upload/";
+    private final String userDownloadPath = "storage/downloads/";
 
     public Client(CoordinatorInt coordinator) {
         this.coordinator = coordinator;
@@ -120,15 +115,15 @@ public class Client {
             case 1:
                 this.downloadFile(department);
                 break;
-//            case 2:
-//                this.uploadFile(department);
-//                break;
-//            case 3:
-//                this.updateFile(department);
-//                break;
-//            case 4:
-//                this.deleteFile(department);
-//                break;
+            case 2:
+                this.uploadFile(department);
+                break;
+            case 3:
+                this.updateFile(department);
+                break;
+            case 4:
+                this.deleteFile(department);
+                break;
             default:
                 throw new IllegalArgumentException("Invalid action, something went wrong");
         }
@@ -136,27 +131,99 @@ public class Client {
 
     private void downloadFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
 
-        List<String> fileNames = this.getDepartmentFiles(department);
+        String fileName = getFilenameFromUserChoice(
+                this.getDepartmentFiles(department),
+                "Choose a file to download: ");
 
-        System.out.println("Available files to download: ");
-        int choice = this.getUserChoice(fileNames);
-
-        String fileName = fileNames.get(choice - 1);
-
-        try (ServerSocket socket = new ServerSocket(8000)) {  // 0 = auto-pick port
+        try (ServerSocket socket = new ServerSocket(8000);
+        ) {
             int port = socket.getLocalPort();
 
             coordinator.fileGet(token, "localhost", port, fileName, department);
 
-            Socket nodeConnection = socket.accept();
+            try (Socket nodeConnection = socket.accept();
+                 InputStream fileStream = nodeConnection.getInputStream();
+                 FileOutputStream fileOut = new FileOutputStream(userDownloadPath + fileName)){
 
-             InputStream fileStream = nodeConnection.getInputStream();
-             FileOutputStream fileOut = new FileOutputStream(fileName);
+                fileStream.transferTo(fileOut);
+            }
 
-            fileStream.transferTo(fileOut);
-            
-            fileOut.close();
+
         } catch (IOException | ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void uploadFile(String department) throws InvalidParameterException, IllegalStateException{
+
+        List<String> fileNames = getFilesFromUploadDirectory();
+
+        String fileName = getFilenameFromUserChoice(
+                fileNames,
+                "Choose the file that you want to upload to the cloud: \n" +
+                        "(put the file in " + userUploadPath + " dir to appear here):");
+
+        try (ServerSocket socket = new ServerSocket(8000)) {
+            int port = socket.getLocalPort();
+
+            String fullName = getFullName(department, fileName);
+
+            coordinator.fileCreate(token, "localhost", port, fullName);
+
+            try (Socket nodeConnection = socket.accept();
+                 OutputStream nodeOut = nodeConnection.getOutputStream();
+                 FileInputStream fileIn = new FileInputStream(userUploadPath + fileName)) {
+
+                fileIn.transferTo(nodeOut);
+            }
+
+        } catch (IOException | ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void updateFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+
+        String originalFile = getFilenameFromUserChoice(
+                getDepartmentFiles(department),
+                "Choose the original file that you want to update from cloud: "
+        );
+
+        String updatedFile = getFilenameFromUserChoice(
+                getFilesFromUploadDirectory(),
+                "Choose the updated file that you want to upload to cloud: \n" +
+                        "P.S. the updated fileName doesn't matter, original fileName will persist"
+        );
+
+        try (ServerSocket socket = new ServerSocket(8000)) {
+            int port = socket.getLocalPort();
+
+            String fullName = getFullName(department, originalFile);
+
+            coordinator.fileUpdate(token, "localhost", port, fullName);
+
+            try (Socket nodeConnection = socket.accept();
+                 OutputStream nodeOut = nodeConnection.getOutputStream();
+                 FileInputStream fileIn = new FileInputStream(userUploadPath + updatedFile)) {
+
+                fileIn.transferTo(nodeOut);
+            }
+
+        } catch (IOException | ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void deleteFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+
+        String fileName = getFilenameFromUserChoice(getDepartmentFiles(department),
+                "Choose the file that you want to delete from cloud: ");
+
+        String fullName = getFullName(department, fileName);
+
+        try {
+            coordinator.fileDelete(token, fullName);
+        } catch (ServiceUnavailableException e) {
             throw new RuntimeException(e);
         }
     }
@@ -171,8 +238,10 @@ public class Client {
         for(String option : options){
             System.out.println(i++ + " - " + option + ".");
         }
-        System.out.println("0 - Exit Application \n -----------------------\n" +
-                "Enter the number of the choice you want: ");
+        System.out.println("""
+                0 - Exit Application\s
+                 ---------------------------
+                Enter the number of the choice you want:\s""");
 
         int choice;
         while (true) {
@@ -186,18 +255,33 @@ public class Client {
         return choice;
     }
 
+    private String getFilenameFromUserChoice(List<String> fileNames, String header){
 
+        System.out.println(header);
+        System.out.println("----------------------------");
+
+        int choice = this.getUserChoice(fileNames);
+
+        return fileNames.get(choice - 1);
+    }
+
+    private List<String> getFilesFromUploadDirectory() {
+        File directory = new File(this.userUploadPath);
+        return Arrays.asList(Objects.requireNonNull(directory.list()));
+    }
+
+    private static String getFullName(String department, String fileName) {
+        return department + "/" + fileName;
+    }
 
     public static void main(String[] args) throws Exception {
 
-        try {
-            CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://localhost:5000/coordinator");
-            Client client = new Client(coordinator);
-
-            client.run();
-        }
-        catch (Exception exception){
-            System.out.println(exception);
-        }
+        CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://localhost:5000/coordinator");
+        Client client = new Client(coordinator);
+        File uploadDir = new File(client.userUploadPath);
+        File downloadDir = new File(client.userDownloadPath);
+        uploadDir.mkdirs();
+        downloadDir.mkdirs();
+        client.run();
     }
 }
