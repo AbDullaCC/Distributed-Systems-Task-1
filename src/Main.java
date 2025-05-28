@@ -11,15 +11,15 @@ public class Main {
 
 // ----------------receiving file as a node from client------------------
 
-        try(Socket clientSocket = new Socket("localhost", 8000);
-            InputStream clientIn = clientSocket.getInputStream();
-            FileOutputStream fileOut = new FileOutputStream("received.txt");){
-
-            clientIn.transferTo(fileOut);
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+//        try(Socket clientSocket = new Socket("localhost", 8000);
+//            InputStream clientIn = clientSocket.getInputStream();
+//            FileOutputStream fileOut = new FileOutputStream("received.txt");){
+//
+//            clientIn.transferTo(fileOut);
+//
+//        } catch (IOException e) {
+//            throw new RuntimeException(e);
+//        }
 
 //----------------sending file from node to client-----------------------
 

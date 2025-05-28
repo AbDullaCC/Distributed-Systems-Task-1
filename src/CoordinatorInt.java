@@ -24,7 +24,7 @@ public interface CoordinatorInt extends Remote {
 
     boolean fileUpdate(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException;
 
-    boolean fileDelete(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException;
+    boolean fileDelete(String token, String fullName) throws RemoteException, ServiceUnavailableException;
 
     void addNode(String id) throws RemoteException, MalformedURLException, NotBoundException;
 

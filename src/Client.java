@@ -118,12 +118,12 @@ public class Client {
             case 2:
                 this.uploadFile(department);
                 break;
-//            case 3:
-//                this.updateFile(department);
-//                break;
-//            case 4:
-//                this.deleteFile(department);
-//                break;
+            case 3:
+                this.updateFile(department);
+                break;
+            case 4:
+                this.deleteFile(department);
+                break;
             default:
                 throw new IllegalArgumentException("Invalid action, something went wrong");
         }
@@ -133,7 +133,7 @@ public class Client {
 
         String fileName = getFilenameFromUserChoice(
                 this.getDepartmentFiles(department),
-                "Available files to download: ");
+                "Choose a file to download: ");
 
         try (ServerSocket socket = new ServerSocket(8000);
         ) {
@@ -160,12 +160,13 @@ public class Client {
 
         String fileName = getFilenameFromUserChoice(
                 fileNames,
-                "Available files to upload (files in " + userUploadPath + " ): ");
+                "Choose the file that you want to upload to the cloud: \n" +
+                        "(put the file in " + userUploadPath + " dir to appear here):");
 
         try (ServerSocket socket = new ServerSocket(8000)) {
             int port = socket.getLocalPort();
 
-            String fullName = department + File.separator + fileName;
+            String fullName = getFullName(department, fileName);
 
             coordinator.fileCreate(token, "localhost", port, fullName);
 
@@ -181,14 +182,51 @@ public class Client {
         }
     }
 
-//    private void updateFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
-//
-//        String fileName = getFilenameFromUserChoice(
-//                getDepartmentFiles(department),
-//                "Choose the File that you want to update: ");
-//
-//
-//    }
+    private void updateFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+
+        String originalFile = getFilenameFromUserChoice(
+                getDepartmentFiles(department),
+                "Choose the original file that you want to update from cloud: "
+        );
+
+        String updatedFile = getFilenameFromUserChoice(
+                getFilesFromUploadDirectory(),
+                "Choose the updated file that you want to upload to cloud: \n" +
+                        "P.S. the updated fileName doesn't matter, original fileName will persist"
+        );
+
+        try (ServerSocket socket = new ServerSocket(8000)) {
+            int port = socket.getLocalPort();
+
+            String fullName = getFullName(department, originalFile);
+
+            coordinator.fileUpdate(token, "localhost", port, fullName);
+
+            try (Socket nodeConnection = socket.accept();
+                 OutputStream nodeOut = nodeConnection.getOutputStream();
+                 FileInputStream fileIn = new FileInputStream(userUploadPath + updatedFile)) {
+
+                fileIn.transferTo(nodeOut);
+            }
+
+        } catch (IOException | ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void deleteFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+
+        String fileName = getFilenameFromUserChoice(getDepartmentFiles(department),
+                "Choose the file that you want to delete from cloud: ");
+
+        String fullName = getFullName(department, fileName);
+
+        try {
+            coordinator.fileDelete(token, fullName);
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private List<String> getDepartmentFiles(String department) throws RemoteException {
         return this.coordinator.getDepartmentFiles(token, department);
@@ -200,8 +238,10 @@ public class Client {
         for(String option : options){
             System.out.println(i++ + " - " + option + ".");
         }
-        System.out.println("0 - Exit Application \n -----------------------\n" +
-                "Enter the number of the choice you want: ");
+        System.out.println("""
+                0 - Exit Application\s
+                 ---------------------------
+                Enter the number of the choice you want:\s""");
 
         int choice;
         while (true) {
@@ -218,6 +258,8 @@ public class Client {
     private String getFilenameFromUserChoice(List<String> fileNames, String header){
 
         System.out.println(header);
+        System.out.println("----------------------------");
+
         int choice = this.getUserChoice(fileNames);
 
         return fileNames.get(choice - 1);
@@ -228,20 +270,18 @@ public class Client {
         return Arrays.asList(Objects.requireNonNull(directory.list()));
     }
 
+    private static String getFullName(String department, String fileName) {
+        return department + "/" + fileName;
+    }
+
     public static void main(String[] args) throws Exception {
 
-        try {
-            CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://localhost:5000/coordinator");
-            Client client = new Client(coordinator);
-            File uploadDir = new File(client.userUploadPath);
-            File downloadDir = new File(client.userDownloadPath);
-            uploadDir.mkdirs();
-            downloadDir.mkdirs();
-
-            client.run();
-        }
-        catch (Exception exception){
-            System.out.println(exception);
-        }
+        CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://localhost:5000/coordinator");
+        Client client = new Client(coordinator);
+        File uploadDir = new File(client.userUploadPath);
+        File downloadDir = new File(client.userDownloadPath);
+        uploadDir.mkdirs();
+        downloadDir.mkdirs();
+        client.run();
     }
 }
