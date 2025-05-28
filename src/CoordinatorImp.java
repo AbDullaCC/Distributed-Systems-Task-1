@@ -5,10 +5,7 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
@@ -217,7 +214,18 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         return true;
     }
 
-    private boolean nodesSync() {
+    private boolean nodesSync() throws RemoteException {
+        for (var asd : filesMeta.entrySet()) {
+            FileMeta fileMeta = asd.getValue();
+            if (fileMeta.getNodes().isEmpty()) {
+                for (var entry : nodes.entrySet()) {
+                    entry.getValue().syncDeleteFile(fileMeta.getFullName());
+                }
+            } else if (fileMeta.getNodes().size() < nodes.size()) {
+                SyncThread th = new SyncThread(fileMeta.getFullName(), fileMeta.getNodes());
+                th.start();
+            }
+        }
         return false;
     }
 
@@ -334,6 +342,29 @@ class DeleteThread extends Thread {
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
             CoordinatorImp.deleteFile(fullName);
+        } catch (ServiceUnavailableException | RemoteException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+class SyncThread extends Thread {
+    String fullName;
+    List<String> nodes;
+
+    public SyncThread(String fullName, List<String> nodes) {
+        this.fullName = fullName;
+        this.nodes = nodes;
+    }
+
+    @Override
+    public void run() {
+        NodeInt node = null;
+        try {
+            node = CoordinatorImp.getBestNode(nodes);
+            CoordinatorImp.increaseLoad(node);
+            node.syncFile(fullName);
+            CoordinatorImp.decreaseLoad(node);
         } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
