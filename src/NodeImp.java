@@ -1,14 +1,11 @@
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.rmi.AlreadyBoundException;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
-
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -34,17 +31,46 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         System.out.println("Node " + id + " is ready at path: " + this.storageBasePath);
     }
 
-    private String getFileMapKey(String dep, String name) {
-        return dep + File.separator + name;
-    }
 
-    private String getFileSystemPath(String dep, String name) {
-        return this.storageBasePath + dep + File.separator + name;
+    private String getFileSystemPath(String name) {
+        return this.storageBasePath + name;
     }
 
     @Override
     public String getNodeId() throws RemoteException {
         return this.id;
+    }
+
+    @Override
+    public void syncDeleteFile(String fullName) throws RemoteException {
+
+        System.out.println("Node " + id + ": Attempting to delete file: " + fullName);
+
+        boolean existsOnDisk = Files.exists(Paths.get(getFileSystemPath(fullName)));
+
+        if (!existsOnDisk) {
+            System.out.println("Node " + id + ": File " + fullName + " not found in memory or disk.");
+
+        }
+
+
+        boolean deletedFromFileSystem = false;
+
+        try {
+            deletedFromFileSystem = Files.deleteIfExists(Paths.get(getFileSystemPath(fullName)));
+        } catch (IOException e) {
+            System.err.println("Node " + id + ": Failed to delete file " + fullName + ": " + e.getMessage());
+            e.printStackTrace();
+
+        }
+
+        System.out.println("Node " + id + ": File " + fullName + " deleted : " + deletedFromFileSystem + ").");
+
+    }
+
+    @Override
+    public void syncFile(String fullName) throws RemoteException {
+        
     }
 
     @Override
@@ -54,34 +80,33 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
     }
 
     @Override
-    public synchronized boolean createFile(String dep, String name, int port) throws RemoteException {
-        String fileKey = getFileMapKey(dep, name);
-        String filePath = getFileSystemPath(dep, name);
+    public synchronized boolean createFile(String socketAddress, int port,  String name) throws RemoteException {
+        String filePath = getFileSystemPath(name);
 
         File file = new File(filePath);
         if (file.exists()) {
-            System.out.println("Node " + id + ": File " + fileKey + " already exists. Cannot create.");
+            System.out.println("Node " + id + ": File " + name + " already exists. Cannot create.");
             return false;
         }
 
-        try (ServerSocket serverSocket = new ServerSocket(port);
-             Socket clientSocket = serverSocket.accept();
-             InputStream in = clientSocket.getInputStream();
+        try (Socket nodeSocket = new Socket(socketAddress, port);
+             InputStream Nodein = nodeSocket.getInputStream();
              FileOutputStream fos = new FileOutputStream(file)) {
 
-            System.out.println("Node " + id + ": Receiving file " + fileKey + " on port " + port);
+            System.out.println("Node " + id + ": Receiving file " + name + " on port " + port);
 
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                fos.write(buffer, 0, bytesRead);
-            }
+            Nodein.transferTo(fos);
+//            byte[] buffer = new byte[4096];
+//            int bytesRead;
+//            while ((bytesRead = in.read(buffer)) != -1) {
+//                fos.write(buffer, 0, bytesRead);
+//            }
 
-            System.out.println("Node " + id + ": File " + fileKey + " created successfully.");
+            System.out.println("Node " + id + ": File " + name + " created successfully.");
             return true;
 
         } catch (IOException e) {
-            System.err.println("Node " + id + ": Error creating file " + fileKey + ": " + e.getMessage());
+            System.err.println("Node " + id + ": Error creating file " + name + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -117,52 +142,49 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
     }
 
     @Override
-    public synchronized boolean updateFile(String dep, String name, int port) throws RemoteException {
-        String fileKey = getFileMapKey(dep, name);
-        String filePath = getFileSystemPath(dep, name);
+    public synchronized boolean updateFile(String socketAddress, int port,  String name) throws RemoteException {
+    String filePath = getFileSystemPath(name);
 
-        System.out.println("Node " + id + ": Waiting to receive updated file: " + fileKey + " on port " + port);
+        System.out.println("Node " + id + ": Waiting to receive updated file: " + name + " on port " + port);
 
-        try (ServerSocket serverSocket = new ServerSocket(port);
-             Socket clientSocket = serverSocket.accept();
-             InputStream in = clientSocket.getInputStream();
+        try (Socket nodeSocket = new Socket(socketAddress, port);
+             InputStream Nodein = nodeSocket.getInputStream();
              FileOutputStream fos = new FileOutputStream(filePath, false)) {
 
-            File directory = new File(this.storageBasePath + File.separator + dep);
+            File directory = new File(this.storageBasePath + File.separator + name);
             if (!directory.exists()) {
                 directory.mkdirs();
             }
+            Nodein.transferTo(fos);
 
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                fos.write(buffer, 0, bytesRead);
-            }
-
-            fos.flush();
-            System.out.println("Node " + id + ": File " + fileKey + " updated successfully from socket.");
+//            byte[] buffer = new byte[4096];
+//            int bytesRead;
+//            while ((bytesRead = in.read(buffer)) != -1) {
+//                fos.write(buffer, 0, bytesRead);
+//            }
+//
+//            fos.flush();
+//            System.out.println("Node " + id + ": File " + fileKey + " updated successfully from socket.");
 
 
             return true;
 
         } catch (IOException e) {
-            System.err.println("Node " + id + ": Error updating file " + fileKey + ": " + e.getMessage());
+            System.err.println("Node " + id + ": Error updating file " + name + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
 
     @Override
-    public synchronized boolean deleteFile(String name, String dep) throws RemoteException {
-        String fileKey = getFileMapKey(dep, name);
-        String filePath = getFileSystemPath(dep, name);
+    public synchronized boolean deleteFile(String name) throws RemoteException {
 
-        System.out.println("Node " + id + ": Attempting to delete file: " + fileKey);
+        System.out.println("Node " + id + ": Attempting to delete file: " + name);
 
-       boolean existsOnDisk = Files.exists(Paths.get(filePath));
+       boolean existsOnDisk = Files.exists(Paths.get(getFileSystemPath(name)));
 
         if (!existsOnDisk) {
-            System.out.println("Node " + id + ": File " + fileKey + " not found in memory or disk.");
+            System.out.println("Node " + id + ": File " + name + " not found in memory or disk.");
             return false;
         }
 
@@ -170,15 +192,15 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         boolean deletedFromFileSystem = false;
 
         try {
-            deletedFromFileSystem = Files.deleteIfExists(Paths.get(filePath));
+            deletedFromFileSystem = Files.deleteIfExists(Paths.get(getFileSystemPath(name)));
         } catch (IOException e) {
-            System.err.println("Node " + id + ": Failed to delete file " + fileKey + ": " + e.getMessage());
+            System.err.println("Node " + id + ": Failed to delete file " + name + ": " + e.getMessage());
             e.printStackTrace();
 
             return false;
         }
 
-        System.out.println("Node " + id + ": File " + fileKey + " deleted : " + deletedFromFileSystem + ").");
+        System.out.println("Node " + id + ": File " + name + " deleted : " + deletedFromFileSystem + ").");
         return true;
     }
 

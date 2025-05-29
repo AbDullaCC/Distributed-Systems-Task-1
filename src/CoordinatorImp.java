@@ -225,7 +225,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             } else if (fileMeta.getNodes().size() < nodes.size()) {
                 SyncThread th = new SyncThread(fileMeta.getFullName(), fileMeta.getNodes());
                 th.start();
-            }
+            }       
         }
         return false;
     }
@@ -310,7 +310,7 @@ class UpdateThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-//            node.updateFile(ip, port, fullName);
+            node.updateFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
@@ -337,7 +337,7 @@ class DeleteThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-//            node.deleteFile(fullName);
+            node.deleteFile(fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
             CoordinatorImp.deleteFile(fullName);
