@@ -18,6 +18,12 @@ public class FileMeta {
         this.nodes = new HashSet<>();
     }
 
+    public FileMeta(String fullName) {
+        this.name = fullName.split("/")[1];
+        this.dep = fullName.split("/")[0];
+        this.nodes = new HashSet<>();
+    }
+
     public void addNode(String node) {
         this.nodes.add(node);
     }

@@ -1,19 +1,21 @@
 import javax.naming.ServiceUnavailableException;
-import java.io.File;
 import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
     static final HashMap<String, Integer> load = new HashMap<>();
     static final HashMap<String, NodeInt> nodes = new HashMap<>();
+    static final HashMap<String, FileMeta> filesMeta = new HashMap<>();
     private static final HashMap<String, Character> filesStatus = new HashMap<>(); // 'R' or 'W'
-    private static final HashMap<String, FileMeta> filesMeta = new HashMap<>();
     private final List<String> departments;
     private final HashMap<String, Employee> employees;
     private final HashMap<String, Employee> tokens;
@@ -31,14 +33,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             CoordinatorImp coordinator = new CoordinatorImp();
             coordinator.addEmployee("asd", "asd", List.of("IT"));
 
-
             Naming.rebind("rmi://localhost:5000/coordinator", coordinator);
-            NodeInt node1 = (NodeInt) Naming.lookup("rmi://localhost:5000/node1");
-            CoordinatorImp.nodes.put("Node1", node1);
-
-            CoordinatorImp.load.put("Node1", 0);
-
-            CoordinatorImp.filesMeta.put("IT/testFile.txt", new FileMeta("testFile.txt", "IT", List.of("Node1")));
 
             System.out.println("coordinator is running");
         } catch (Exception e) {
@@ -163,7 +158,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     @Override
     public List<String> getDepartmentFiles(String token, String department) throws RemoteException, InvalidParameterException {
         isValidToken(token);
-        return filesMeta.values().stream().filter(fileMeta -> fileMeta.dep.equals(department)).map(fileMeta -> fileMeta.name).toList();
+        return filesMeta.values().stream().filter(fileMeta -> fileMeta.dep.equals(department) && !fileMeta.getNodes().isEmpty()).map(fileMeta -> fileMeta.name).toList();
     }
 
     @Override
@@ -255,6 +250,7 @@ class CreateThread extends Thread {
             node.getFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
+            CoordinatorImp.filesMeta.put(fullName, new FileMeta(fullName));
         } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
