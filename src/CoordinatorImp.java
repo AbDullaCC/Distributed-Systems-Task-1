@@ -1,12 +1,15 @@
 import javax.naming.ServiceUnavailableException;
-import java.io.File;
 import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
@@ -30,15 +33,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
             CoordinatorImp coordinator = new CoordinatorImp();
             coordinator.addEmployee("asd", "asd", List.of("IT"));
-
-
+            LocateRegistry.createRegistry(5000);
             Naming.rebind("rmi://localhost:5000/coordinator", coordinator);
-            NodeInt node1 = (NodeInt) Naming.lookup("rmi://localhost:5000/node1");
-            CoordinatorImp.nodes.put("Node1", node1);
 
-            CoordinatorImp.load.put("Node1", 0);
-
-            CoordinatorImp.filesMeta.put("IT/testFile.txt", new FileMeta("testFile.txt", "IT", List.of("Node1")));
 
             System.out.println("coordinator is running");
         } catch (Exception e) {
@@ -225,7 +222,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             } else if (fileMeta.getNodes().size() < nodes.size()) {
                 SyncThread th = new SyncThread(fileMeta.getFullName(), fileMeta.getNodes());
                 th.start();
-            }       
+            }
         }
         return false;
     }
@@ -252,7 +249,7 @@ class CreateThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-            node.getFile(ip, port, fullName);
+            node.createFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {

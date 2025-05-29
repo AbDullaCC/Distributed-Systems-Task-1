@@ -43,7 +43,7 @@ public class Client {
 
                     this.executeRequestedAction(action, department);
 
-                    System.out.println("Action concluded successfully.");
+                    System.out.println("*Action concluded successfully.*\n--------------------------------------\n");
                 }
                 catch (InvalidParameterException exception){
                     System.out.println(exception.getMessage());

@@ -70,7 +70,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 
     @Override
     public void syncFile(String fullName) throws RemoteException {
-        
+
     }
 
     @Override
@@ -84,6 +84,16 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         String filePath = getFileSystemPath(name);
 
         File file = new File(filePath);
+        File parentDir = file.getParentFile();
+
+        // Create parent directories if they don't exist
+        if (parentDir != null && !parentDir.exists()) {
+            if (!parentDir.mkdirs()) {
+                System.err.println("Node " + id + ": Failed to create directory " + parentDir.getAbsolutePath());
+                return false;
+            }
+        }
+
         if (file.exists()) {
             System.out.println("Node " + id + ": File " + name + " already exists. Cannot create.");
             return false;
@@ -92,7 +102,10 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         try (Socket nodeSocket = new Socket(socketAddress, port);
              InputStream Nodein = nodeSocket.getInputStream();
              FileOutputStream fos = new FileOutputStream(file)) {
-
+            File directory = new File(this.storageBasePath + File.separator + name);
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
             System.out.println("Node " + id + ": Receiving file " + name + " on port " + port);
 
             Nodein.transferTo(fos);
@@ -231,9 +244,11 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 
     public static void main(String[] args) throws RemoteException {
         try {
-            NodeImp node = new NodeImp("Node1");
-            LocateRegistry.createRegistry(5000);
-            Naming.rebind("rmi://localhost:5000/node1", node);
+            NodeImp node = new NodeImp("node_1");
+
+            Naming.rebind("rmi://localhost:5000/node_1", node);
+            CoordinatorInt coordinator =(CoordinatorInt) Naming.lookup("rmi://localhost:5000/coordinator");
+            coordinator.addNode(node.id);
             System.out.println(node.id + "is running");
         } catch (Exception e) {
             throw new RuntimeException(e);
