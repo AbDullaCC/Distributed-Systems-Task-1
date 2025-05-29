@@ -11,7 +11,7 @@ public class Main {
 
 // ----------------receiving file as a node from client------------------
 
-//        try(Socket clientSocket = new Socket("localhost", 8000);
+//        try(Socket  = new Socket("localhost"clientSocket, 8000);
 //            InputStream clientIn = clientSocket.getInputStream();
 //            FileOutputStream fileOut = new FileOutputStream("received.txt");){
 //

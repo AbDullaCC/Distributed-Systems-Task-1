@@ -3,6 +3,7 @@ import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -33,7 +34,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             CoordinatorImp coordinator = new CoordinatorImp();
             coordinator.addEmployee("asd", "asd", List.of("IT"));
 
+            LocateRegistry.createRegistry(5000);
             Naming.rebind("rmi://localhost:5000/coordinator", coordinator);
+
 
             System.out.println("coordinator is running");
         } catch (Exception e) {
@@ -247,7 +250,7 @@ class CreateThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-            node.getFile(ip, port, fullName);
+            node.createFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
             CoordinatorImp.filesMeta.put(fullName, new FileMeta(fullName));
@@ -306,7 +309,7 @@ class UpdateThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-//            node.updateFile(ip, port, fullName);
+            node.updateFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
         } catch (ServiceUnavailableException | RemoteException e) {
@@ -333,7 +336,7 @@ class DeleteThread extends Thread {
             node = CoordinatorImp.getBestNode(nodes);
             CoordinatorImp.increaseLoad(node);
             CoordinatorImp.makeWrite(fullName);
-//            node.deleteFile(fullName);
+            node.deleteFile(fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
             CoordinatorImp.deleteFile(fullName);
