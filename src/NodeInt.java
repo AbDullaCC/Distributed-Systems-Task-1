@@ -9,8 +9,7 @@ public interface NodeInt extends Remote {
 
     boolean updateFile(String socketAddress, int port,  String name)throws RemoteException;
     boolean deleteFile(String name) throws RemoteException;
-    boolean cloneFile(String sourceIp, int sourcePort, String fileName, String dep) throws RemoteException;
-    String getNodeId() throws RemoteException;
+     String getNodeId() throws RemoteException;
 
     void syncDeleteFile(String fullName) throws RemoteException;
     void syncFile(String fullName) throws RemoteException;
