@@ -14,6 +14,8 @@ public interface CoordinatorInt extends Remote {
 
     String login(String username, String password) throws RemoteException, InvalidParameterException;
 
+    boolean isManager(String token) throws RemoteException;
+
     List<String> getDepartments(String token) throws RemoteException, InvalidParameterException;
 
     List<String> getDepartmentFiles(String token, String department) throws RemoteException, InvalidParameterException;
@@ -28,4 +30,5 @@ public interface CoordinatorInt extends Remote {
 
     void addNode(String id) throws RemoteException, MalformedURLException, NotBoundException;
 
+    boolean addEmployee(String token, String username, String password, List<String> roles) throws RemoteException;
 }

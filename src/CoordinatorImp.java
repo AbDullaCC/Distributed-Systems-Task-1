@@ -32,7 +32,8 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         try {
 
             CoordinatorImp coordinator = new CoordinatorImp();
-            coordinator.addEmployee("asd", "asd", List.of("IT"));
+            Employee manager = new Employee("man", "123", List.of("MANAGER"));
+            coordinator.employees.put("man", manager);
 
             LocateRegistry.createRegistry(5000);
             Naming.rebind("rmi://localhost:5000/coordinator", coordinator);
@@ -102,7 +103,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         CoordinatorImp.load.put(id, 0);
     }
 
-    private boolean addEmployee(String username, String password, List<String> roles) {
+    public boolean addEmployee(String token, String username, String password, List<String> roles) throws RemoteException {
+        isValidToken(token);
+        if(!isManager(token)) throw new InvalidParameterException("Forbidden operation, you should be a manager to add new employees");
         Employee existsEmployee = employees.get(username);
         if (existsEmployee != null) {
             throw new InvalidParameterException("Username exists");
@@ -122,6 +125,11 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             throw new InvalidParameterException("Password is wrong");
         }
         return generateToken(employee);
+    }
+
+    @Override
+    public boolean isManager(String token) throws RemoteException {
+        return tokens.get(token).getRoles().contains("MANAGER");
     }
 
     private String generateToken(Employee employee) {
@@ -149,7 +157,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         if (employee == null) {
             throw new InvalidParameterException("employee doesn't exist");
         }
-        return employee.getRoles().contains(department);
+        return employee.getRoles().contains(department) || employee.getRoles().contains("MANAGER");
     }
 
     @Override

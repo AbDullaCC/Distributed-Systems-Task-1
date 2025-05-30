@@ -14,6 +14,7 @@ public class Client {
     private final Scanner scanner;
     private final String userUploadPath = "storage/upload/";
     private final String userDownloadPath = "storage/downloads/";
+    private boolean isManager;
 
     public Client(CoordinatorInt coordinator) {
         this.coordinator = coordinator;
@@ -28,6 +29,7 @@ public class Client {
             if (!isLoggedIn()){
                 try {
                     this.token = this.login();
+                    this.isManager = coordinator.isManager(token);
                 }
                 catch (InvalidParameterException exception){
                     System.out.println("Invalid username or password, try again");
@@ -43,16 +45,15 @@ public class Client {
 
                     this.executeRequestedAction(action, department);
 
-                    System.out.println("*Action concluded successfully.*\n--------------------------------------\n");
+                    System.out.println("*Action concluded successfully*\n--------------------------------------\n");
                 }
-                catch (InvalidParameterException exception){
+                catch (InvalidParameterException | IllegalAccessException exception){
                     System.out.println(exception.getMessage());
                 }
                 catch (IllegalStateException exception){
                     System.out.println("Application is terminated");
                     working = false;
                 }
-
             }
         }
     }
@@ -83,18 +84,27 @@ public class Client {
         List<String> departments = coordinator.getDepartments(token);
 
         System.out.println("Available departments: ");
-        int choice = this.getUserChoice(departments);
+        int choice = 0;
+        try {
+            choice = this.getUserChoice(departments);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
 
         //decrement "choice" by 1 because the index should start from 0.
         return departments.get(choice-1);
     }
 
-    private int chooseAction(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+    private int chooseAction(String department) throws RemoteException, InvalidParameterException, IllegalStateException, IllegalAccessException {
 
         List<String> actions = this.getAllowedActions(department);
         System.out.println("Available actions: ");
 
-        return this.getUserChoice(actions);
+        try {
+            return this.getUserChoice(actions);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private List<String> getAllowedActions(String department) throws RemoteException, InvalidParameterException {
@@ -106,10 +116,13 @@ public class Client {
                     "Delete a file"
             ));
         }
+        if (isManager){
+            actions.add("Add an employee");
+        }
         return actions;
     }
 
-    private void executeRequestedAction(int action, String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+    private void executeRequestedAction(int action, String department) throws RemoteException, InvalidParameterException, IllegalStateException, IllegalAccessException {
 
         switch (action) {
             case 1:
@@ -124,16 +137,19 @@ public class Client {
             case 4:
                 this.deleteFile(department);
                 break;
+            case 5:
+                this.addEmployee(department);
+                break;
             default:
                 throw new IllegalArgumentException("Invalid action, something went wrong");
         }
     }
 
-    private void downloadFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+    private void downloadFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException, IllegalAccessException {
 
         String fileName = getFilenameFromUserChoice(
-                this.getDepartmentFiles(department),
-                "Choose a file to download: ");
+                    this.getDepartmentFiles(department),
+                    "Choose a file to download: ");
 
         try (ServerSocket socket = new ServerSocket(8000);
         ) {
@@ -154,14 +170,24 @@ public class Client {
         }
     }
 
-    private void uploadFile(String department) throws InvalidParameterException, IllegalStateException{
+    private void uploadFile(String department) throws InvalidParameterException, IllegalStateException, IllegalAccessException {
 
-        List<String> fileNames = getFilesFromUploadDirectory();
+        List<String> fileNames = null;
+        try {
+            fileNames = getFilesFromUploadDirectory();
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
 
-        String fileName = getFilenameFromUserChoice(
-                fileNames,
-                "Choose the file that you want to upload to the cloud: \n" +
-                        "(put the file in " + userUploadPath + " dir to appear here):");
+        String fileName = null;
+        try {
+            fileName = getFilenameFromUserChoice(
+                    fileNames,
+                    "Choose the file that you want to upload to the cloud: \n" +
+                            "(put the file in " + userUploadPath + " dir to appear here):");
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
 
         try (ServerSocket socket = new ServerSocket(8000)) {
             int port = socket.getLocalPort();
@@ -182,18 +208,28 @@ public class Client {
         }
     }
 
-    private void updateFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+    private void updateFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException, IllegalAccessException {
 
-        String originalFile = getFilenameFromUserChoice(
-                getDepartmentFiles(department),
-                "Choose the original file that you want to update from cloud: "
-        );
+        String originalFile = null;
+        try {
+            originalFile = getFilenameFromUserChoice(
+                    getDepartmentFiles(department),
+                    "Choose the original file that you want to update from cloud: "
+            );
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
 
-        String updatedFile = getFilenameFromUserChoice(
-                getFilesFromUploadDirectory(),
-                "Choose the updated file that you want to upload to cloud: \n" +
-                        "P.S. the updated fileName doesn't matter, original fileName will persist"
-        );
+        String updatedFile = null;
+        try {
+            updatedFile = getFilenameFromUserChoice(
+                    getFilesFromUploadDirectory(),
+                    "Choose the updated file that you want to upload to cloud: \n" +
+                            "P.S. the updated fileName doesn't matter, original fileName will persist"
+            );
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
 
         try (ServerSocket socket = new ServerSocket(8000)) {
             int port = socket.getLocalPort();
@@ -214,10 +250,15 @@ public class Client {
         }
     }
 
-    private void deleteFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException {
+    private void deleteFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException, IllegalAccessException {
 
-        String fileName = getFilenameFromUserChoice(getDepartmentFiles(department),
-                "Choose the file that you want to delete from cloud: ");
+        String fileName = null;
+        try {
+            fileName = getFilenameFromUserChoice(getDepartmentFiles(department),
+                    "Choose the file that you want to delete from cloud: ");
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
 
         String fullName = getFullName(department, fileName);
 
@@ -228,11 +269,24 @@ public class Client {
         }
     }
 
+    private void addEmployee(String department) throws RemoteException {
+        System.out.print("Employee username: ");
+        String username = scanner.nextLine();
+        System.out.print("Employee password: ");
+        String password = scanner.nextLine();
+
+        if (username == null || password == null){ throw new IllegalArgumentException("Invalid username or password"); }
+
+        coordinator.addEmployee(token, username, password, List.of(department));
+    }
+
     private List<String> getDepartmentFiles(String department) throws RemoteException {
         return this.coordinator.getDepartmentFiles(token, department);
     }
 
-    private int getUserChoice(List<String> options) throws IllegalStateException{
+    private int getUserChoice(List<String> options) throws IllegalStateException, IllegalAccessException {
+
+        if (options.isEmpty()){throw new IllegalAccessException("Nothing to display.\n");}
 
         int i = 1;
         for(String option : options){
@@ -255,7 +309,7 @@ public class Client {
         return choice;
     }
 
-    private String getFilenameFromUserChoice(List<String> fileNames, String header){
+    private String getFilenameFromUserChoice(List<String> fileNames, String header) throws IllegalAccessException {
 
         System.out.println(header);
         System.out.println("----------------------------");
@@ -265,7 +319,7 @@ public class Client {
         return fileNames.get(choice - 1);
     }
 
-    private List<String> getFilesFromUploadDirectory() {
+    private List<String> getFilesFromUploadDirectory() throws IllegalAccessException {
         File directory = new File(this.userUploadPath);
         return Arrays.asList(Objects.requireNonNull(directory.list()));
     }
