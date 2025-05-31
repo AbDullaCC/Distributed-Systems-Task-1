@@ -338,7 +338,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     @Override
     public boolean fileUpdate(String token, String ip, int port, String fullName) throws RemoteException, ServiceUnavailableException {
-        otherActionsAllowed(token, fullName.split(",")[0]);
+        otherActionsAllowed(token, fullName.split("/")[0]);
         checkRWAccess(fullName);
         // don't exist or exists but deleted
         if (!filesMeta.containsKey(fullName) || (filesMeta.containsKey(fullName) && filesMeta.get(fullName).getNodes().isEmpty()))
@@ -350,7 +350,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     @Override
     public boolean fileDelete(String token, String fullName) throws RemoteException, ServiceUnavailableException {
-        otherActionsAllowed(token, fullName.split(",")[0]);
+        otherActionsAllowed(token, fullName.split("/")[0]);
         checkRWAccess(fullName);
         // don't exist or exists but deleted
         if (!filesMeta.containsKey(fullName) || (filesMeta.containsKey(fullName) && filesMeta.get(fullName).getNodes().isEmpty()))
