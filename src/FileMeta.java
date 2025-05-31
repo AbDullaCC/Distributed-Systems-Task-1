@@ -40,6 +40,10 @@ public class FileMeta {
         nodes.forEach(this.nodes::remove);
     }
 
+    public void clearNodes() {
+        nodes.clear();
+    }
+
     public List<String> getNodes() {
         return this.nodes.stream().toList();
     }

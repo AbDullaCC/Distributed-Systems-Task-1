@@ -1,7 +1,4 @@
 import javax.naming.ServiceUnavailableException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
@@ -9,7 +6,10 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
@@ -230,7 +230,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     public synchronized static void deleteFile(String fullName) throws RemoteException {
         synchronized (filesMeta) {
-            filesMeta.get(fullName).removeNodes(filesMeta.get(fullName).getNodes());
+            filesMeta.get(fullName).clearNodes();
         }
     }
 
@@ -243,7 +243,8 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     public boolean addEmployee(String token, String username, String password, List<String> roles) throws RemoteException {
         isValidToken(token);
-        if(!isManager(token)) throw new InvalidParameterException("Forbidden operation, you should be a manager to add new employees");
+        if (!isManager(token))
+            throw new InvalidParameterException("Forbidden operation, you should be a manager to add new employees");
         Employee existsEmployee = employees.get(username);
         if (existsEmployee != null) {
             throw new InvalidParameterException("Username exists");
