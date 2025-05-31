@@ -399,7 +399,11 @@ class CreateThread extends Thread {
             node.createFile(ip, port, fullName);
             CoordinatorImp.decreaseLoad(node);
             CoordinatorImp.removeStatus(fullName);
-            CoordinatorImp.filesMeta.put(fullName, new FileMeta(fullName));
+
+            FileMeta fm = new FileMeta(fullName);
+            fm.addNode(node.getNodeId());
+
+            CoordinatorImp.filesMeta.put(fullName, fm);
         } catch (ServiceUnavailableException | RemoteException e) {
             throw new RuntimeException(e);
         }
