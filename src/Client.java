@@ -172,22 +172,14 @@ public class Client {
 
     private void uploadFile(String department) throws InvalidParameterException, IllegalStateException, IllegalAccessException {
 
-        List<String> fileNames = null;
-        try {
-            fileNames = getFilesFromUploadDirectory();
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
+        List<String> fileNames = getFilesFromUploadDirectory();
 
-        String fileName = null;
-        try {
-            fileName = getFilenameFromUserChoice(
-                    fileNames,
-                    "Choose the file that you want to upload to the cloud: \n" +
-                            "(put the file in " + userUploadPath + " dir to appear here):");
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
+        String fileName = getFilenameFromUserChoice(
+                fileNames,
+                "Choose the file that you want to upload to the cloud: \n" +
+                        "(put the file in " + userUploadPath + " dir to appear here):"
+        );
+
 
         try (ServerSocket socket = new ServerSocket(8000)) {
             int port = socket.getLocalPort();
@@ -210,26 +202,18 @@ public class Client {
 
     private void updateFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException, IllegalAccessException {
 
-        String originalFile = null;
-        try {
-            originalFile = getFilenameFromUserChoice(
-                    getDepartmentFiles(department),
-                    "Choose the original file that you want to update from cloud: "
-            );
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
+        String originalFile = getFilenameFromUserChoice(
+                getDepartmentFiles(department),
+                "Choose the original file that you want to update from cloud: "
+        );
 
-        String updatedFile = null;
-        try {
-            updatedFile = getFilenameFromUserChoice(
+
+        String updatedFile = getFilenameFromUserChoice(
                     getFilesFromUploadDirectory(),
                     "Choose the updated file that you want to upload to cloud: \n" +
                             "P.S. the updated fileName doesn't matter, original fileName will persist"
             );
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
+
 
         try (ServerSocket socket = new ServerSocket(8000)) {
             int port = socket.getLocalPort();
@@ -252,13 +236,8 @@ public class Client {
 
     private void deleteFile(String department) throws RemoteException, InvalidParameterException, IllegalStateException, IllegalAccessException {
 
-        String fileName = null;
-        try {
-            fileName = getFilenameFromUserChoice(getDepartmentFiles(department),
+        String fileName = getFilenameFromUserChoice(getDepartmentFiles(department),
                     "Choose the file that you want to delete from cloud: ");
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
 
         String fullName = getFullName(department, fileName);
 
@@ -270,6 +249,7 @@ public class Client {
     }
 
     private void addEmployee(String department) throws RemoteException {
+        scanner.nextLine(); //flush input
         System.out.print("Employee username: ");
         String username = scanner.nextLine();
         System.out.print("Employee password: ");
