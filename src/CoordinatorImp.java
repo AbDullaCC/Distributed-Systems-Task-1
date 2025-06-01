@@ -88,16 +88,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     }
 
     private void handleInactiveNode(String nodeId) {
-        activeNodes.remove(nodeId); // Mark as inactive by removing from active set
-        // Optionally, remove from the main 'nodes' map and 'load' map if desired,
-        // but this means the node would need to re-register fully.
-        // For now, just marking as inactive in 'activeNodes' map.
-        // load.remove(nodeId);
-        // nodes.remove(nodeId);
-        // System.out.println("Coordinator: Node " + nodeId + " effectively removed due to inactivity.");
-
-        // Additional fault tolerance logic could be triggered here, e.g.,
-        // re-replicating files that were primarily on this node if a certain threshold of replicas is not met.
+        activeNodes.remove(nodeId);
+         load.remove(nodeId);
+         nodes.remove(nodeId);
     }
 
     public static NodeInt getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
