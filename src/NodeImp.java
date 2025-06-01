@@ -52,23 +52,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         }
         System.out.println("Node " + id + " is ready at path: " + this.storageBasePath);
 
-        // Initialize and start multicast listener
-        try {
-            multicastGroupAddress = InetAddress.getByName(MULTICAST_ADDRESS);
-            multicastListenSocket = new MulticastSocket(MULTICAST_PORT); // Bind to the port for listening
-            multicastListenSocket.joinGroup(multicastGroupAddress);
-            System.out.println("Node " + id + ": Joined multicast group " + MULTICAST_ADDRESS + ":" + MULTICAST_PORT);
 
-            Thread multicastListenerThread = new Thread(this::listenForMulticastMessages);
-            multicastListenerThread.setDaemon(true); // Allows JVM to exit if this is the only thread running
-            multicastListenerThread.start();
-
-        } catch (IOException e) {
-            System.err.println("Node " + id + ": Multicast setup error: " + e.getMessage());
-            // Depending on requirements, this could be a fatal error for the node.
-            // For simplicity, we'll print the error and continue. The node might not sync.
-            throw new RemoteException("Node " + id + " failed to set up multicast: " + e.getMessage(), e);
-        }
 
         // Graceful shutdown of multicast socket
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -405,7 +389,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
             System.setProperty("java.rmi.server.hostname", rmiRegistryHost);
 
             NodeImp node = new NodeImp(nodeId);
-            node.startDailyTask();
+            node.scheduleTask();
 
             try {
                 LocateRegistry.createRegistry(Integer.parseInt(rmiRegistryPort));
@@ -454,13 +438,9 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 //        } catch (Exception e) {
 //            throw new RuntimeException(e);
 //        }
-    /**
-     * Default main method in NodeImp.java.
-     * This could start a default node or be left empty if nodes are always started by specific launchers.
-     * For example, it could start a node with a default ID.
-     */
+
     public static void main(String[] args) {
-       startInstance("node_1");
+       startInstance("node_5");
 
     }
     public enum MulticastMessageType {
@@ -543,9 +523,6 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         }
     }
 
-    public void startDailyTask() {
-        scheduleTask();
-    }
 
     private void scheduleTask() {
         // Calculate next 12 AM
@@ -564,9 +541,22 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                Thread multicastListenerThread = new Thread(NodeImp.this::listenForMulticastMessages);
-                multicastListenerThread.setDaemon(true);
-                multicastListenerThread.start();
+
+                try {
+                    multicastGroupAddress = InetAddress.getByName(MULTICAST_ADDRESS);
+                    multicastListenSocket = new MulticastSocket(MULTICAST_PORT); // Bind to the port for listening
+                    multicastListenSocket.joinGroup(multicastGroupAddress);
+                    System.out.println("Node " + id + ": Joined multicast group " + MULTICAST_ADDRESS + ":" + MULTICAST_PORT);
+
+                    Thread multicastListenerThread = new Thread(NodeImp.this::listenForMulticastMessages);
+                    multicastListenerThread.setDaemon(true);
+                    multicastListenerThread.start();
+
+                } catch (IOException e) {
+                    System.err.println("Node " + id + ": Multicast setup error: " + e.getMessage());
+                }
+
+
 
                 // Reschedule for next day
                 scheduleTask();

@@ -19,6 +19,10 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     private final HashMap<String, Employee> employees;
     private final HashMap<String, Employee> tokens;
 
+    private static final long PING_INTERVAL_MS = 30 * 1000; // Ping every 30 seconds
+
+    static final HashMap<String, Boolean> activeNodes = new HashMap<>();
+
     protected CoordinatorImp() throws RemoteException {
         super();
         departments = Arrays.asList("IT", "HR", "QA", "GRAPHICS", "SALES");
@@ -38,9 +42,62 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             System.out.println("coordinator is running");
 
             coordinator.scheduleNodeSync();
+
+            coordinator.schedulePeriodicPing();
         } catch (Exception e) {
             System.out.println(e);
         }
+    }
+
+    private void schedulePeriodicPing() {
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                checkNodeStatus();
+            }
+        }, PING_INTERVAL_MS, PING_INTERVAL_MS); // Start after initial delay, then repeat
+        System.out.println("Coordinator: Periodic node pinging scheduled every " + PING_INTERVAL_MS / 1000 + " seconds.");
+    }
+    private void checkNodeStatus() {
+        System.out.println("Coordinator: Performing periodic node health check...");
+        if (nodes.isEmpty()) {
+            System.out.println("Coordinator: No nodes currently registered to ping.");
+            return;
+        }
+        Set<String> currentNodeIds = new HashSet<>(nodes.keySet());
+
+        for (String nodeId : currentNodeIds) {
+            NodeInt node = nodes.get(nodeId);
+            if (node != null) {
+                try {
+                    boolean isAlive = node.ping();
+                    if (isAlive) {
+                       activeNodes.put(nodeId, true); // Mark as active
+                    } else {
+                        // This case might not happen if ping() throws RemoteException on failure
+                        System.out.println("Coordinator: Node " + nodeId + " ping returned false (unexpected). Marking as inactive.");
+                        handleInactiveNode(nodeId);
+                    }
+                } catch (RemoteException e) {
+                    System.err.println("Coordinator: Node " + nodeId + " failed to respond to ping. Marking as inactive. Error: " + e.getMessage());
+                    handleInactiveNode(nodeId);
+                }
+            }
+        }
+        System.out.println("Coordinator: Node health check finished. Active nodes: " + activeNodes.keySet());
+    }
+
+    private void handleInactiveNode(String nodeId) {
+        activeNodes.remove(nodeId); // Mark as inactive by removing from active set
+        // Optionally, remove from the main 'nodes' map and 'load' map if desired,
+        // but this means the node would need to re-register fully.
+        // For now, just marking as inactive in 'activeNodes' map.
+        // load.remove(nodeId);
+        // nodes.remove(nodeId);
+        // System.out.println("Coordinator: Node " + nodeId + " effectively removed due to inactivity.");
+
+        // Additional fault tolerance logic could be triggered here, e.g.,
+        // re-replicating files that were primarily on this node if a certain threshold of replicas is not met.
     }
 
     public static NodeInt getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
@@ -128,6 +185,7 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
     public void addNode(String id) throws RemoteException, MalformedURLException, NotBoundException {
         NodeInt node1 = (NodeInt) Naming.lookup("rmi://localhost:5000/" + id);
         CoordinatorImp.nodes.put(id, node1);
+        activeNodes.put(id, true);
         CoordinatorImp.load.put(id, 0);
     }
 
