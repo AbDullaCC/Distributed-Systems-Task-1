@@ -7,21 +7,20 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidParameterException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorInt {
 
     static final HashMap<String, Integer> load = new HashMap<>();
     static final HashMap<String, NodeInt> nodes = new HashMap<>();
     static final HashMap<String, FileMeta> filesMeta = new HashMap<>();
+    static final HashMap<String, Boolean> activeNodes = new HashMap<>();
     private static final HashMap<String, Character> filesStatus = new HashMap<>(); // 'R' or 'W'
+    private static final long PING_INTERVAL_MS = 30 * 1000; // Ping every 30 seconds
     private static Timer timer = new Timer();
     private final List<String> departments;
     private final HashMap<String, Employee> employees;
     private final HashMap<String, Employee> tokens;
-
-    private static final long PING_INTERVAL_MS = 30 * 1000; // Ping every 30 seconds
-
-    static final HashMap<String, Boolean> activeNodes = new HashMap<>();
 
     protected CoordinatorImp() throws RemoteException {
         super();
@@ -49,61 +48,30 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         }
     }
 
-    private void schedulePeriodicPing() {
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                checkNodeStatus();
-            }
-        }, PING_INTERVAL_MS, PING_INTERVAL_MS); // Start after initial delay, then repeat
-        System.out.println("Coordinator: Periodic node pinging scheduled every " + PING_INTERVAL_MS / 1000 + " seconds.");
-    }
-    private void checkNodeStatus() {
-        System.out.println("Coordinator: Performing periodic node health check...");
-        if (nodes.isEmpty()) {
-            System.out.println("Coordinator: No nodes currently registered to ping.");
-            return;
+    public static List<String> getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
+        if (availableNodes.isEmpty()) {
+            throw new ServiceUnavailableException("No nodes available");
         }
-        Set<String> currentNodeIds = new HashSet<>(nodes.keySet());
 
-        for (String nodeId : currentNodeIds) {
-            NodeInt node = nodes.get(nodeId);
-            if (node != null) {
-                try {
-                    boolean isAlive = node.ping();
-                    if (isAlive) {
-                       activeNodes.put(nodeId, true); // Mark as active
-                    } else {
-                        // This case might not happen if ping() throws RemoteException on failure
-                        System.out.println("Coordinator: Node " + nodeId + " ping returned false (unexpected). Marking as inactive.");
-                        handleInactiveNode(nodeId);
-                    }
-                } catch (RemoteException e) {
-                    System.err.println("Coordinator: Node " + nodeId + " failed to respond to ping. Marking as inactive. Error: " + e.getMessage());
-                    handleInactiveNode(nodeId);
-                }
+        // Create list of node IDs and their loads
+        List<Map.Entry<String, Integer>> nodeLoads = new ArrayList<>();
+        for (String nodeId : availableNodes) {
+            if (load.containsKey(nodeId)) {
+                nodeLoads.add(new AbstractMap.SimpleEntry<>(nodeId, load.get(nodeId)));
             }
         }
-        System.out.println("Coordinator: Node health check finished. Active nodes: " + activeNodes.keySet());
-    }
 
-    private void handleInactiveNode(String nodeId) {
-        activeNodes.remove(nodeId);
-         load.remove(nodeId);
-         nodes.remove(nodeId);
-    }
+        // Sort by load (ascending)
+        nodeLoads.sort(Map.Entry.comparingByValue());
 
-    public static NodeInt getBestNode(List<String> availableNodes) throws ServiceUnavailableException {
-        String bestNode = null;
-        int min = Integer.MAX_VALUE;
-        for (Map.Entry<String, Integer> a : load.entrySet()) {
-            if (a.getValue() < min && availableNodes.contains(a.getKey())) {
-                bestNode = a.getKey();
-                min = a.getValue();
-            }
+        // Extract just the node IDs in sorted order
+        List<String> sortedNodes = nodeLoads.stream().map(Map.Entry::getKey).collect(Collectors.toList());
+
+        if (sortedNodes.isEmpty()) {
+            throw new ServiceUnavailableException("No nodes available");
         }
-        if (bestNode == null) throw new ServiceUnavailableException("No nodes available");
-        return nodes.get(bestNode);
+
+        return sortedNodes;
     }
 
     public synchronized static void increaseLoad(NodeInt node) throws RemoteException {
@@ -142,6 +110,51 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         synchronized (filesMeta) {
             filesMeta.get(fullName).clearNodes();
         }
+    }
+
+    private void schedulePeriodicPing() {
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                checkNodeStatus();
+            }
+        }, PING_INTERVAL_MS, PING_INTERVAL_MS); // Start after initial delay, then repeat
+        System.out.println("Coordinator: Periodic node pinging scheduled every " + PING_INTERVAL_MS / 1000 + " seconds.");
+    }
+
+    private void checkNodeStatus() {
+        System.out.println("Coordinator: Performing periodic node health check...");
+        if (nodes.isEmpty()) {
+            System.out.println("Coordinator: No nodes currently registered to ping.");
+            return;
+        }
+        Set<String> currentNodeIds = new HashSet<>(nodes.keySet());
+
+        for (String nodeId : currentNodeIds) {
+            NodeInt node = nodes.get(nodeId);
+            if (node != null) {
+                try {
+                    boolean isAlive = node.ping();
+                    if (isAlive) {
+                        activeNodes.put(nodeId, true); // Mark as active
+                    } else {
+                        // This case might not happen if ping() throws RemoteException on failure
+                        System.out.println("Coordinator: Node " + nodeId + " ping returned false (unexpected). Marking as inactive.");
+                        handleInactiveNode(nodeId);
+                    }
+                } catch (RemoteException e) {
+                    System.err.println("Coordinator: Node " + nodeId + " failed to respond to ping. Marking as inactive. Error: " + e.getMessage());
+                    handleInactiveNode(nodeId);
+                }
+            }
+        }
+        System.out.println("Coordinator: Node health check finished. Active nodes: " + activeNodes.keySet());
+    }
+
+    private void handleInactiveNode(String nodeId) {
+        activeNodes.remove(nodeId);
+        load.remove(nodeId);
+        nodes.remove(nodeId);
     }
 
     private void scheduleNodeSync() {
@@ -333,21 +346,33 @@ class CreateThread extends Thread {
 
     @Override
     public void run() {
-        NodeInt node = null;
         try {
-            node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.increaseLoad(node);
-            CoordinatorImp.makeWrite(fullName);
-            node.createFile(ip, port, fullName);
-            CoordinatorImp.decreaseLoad(node);
-            CoordinatorImp.removeStatus(fullName);
+            List<String> sortedNodes = CoordinatorImp.getBestNode(nodes);
+            for (String nodeId : sortedNodes) {
+                NodeInt node = CoordinatorImp.nodes.get(nodeId);
+                try {
+                    CoordinatorImp.increaseLoad(node);
+                    CoordinatorImp.makeWrite(fullName);
+                    node.createFile(ip, port, fullName);
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
 
-            FileMeta fm = new FileMeta(fullName);
-            fm.addNode(node.getNodeId());
+                    FileMeta fm = new FileMeta(fullName);
+                    fm.addNode(node.getNodeId());
+                    CoordinatorImp.filesMeta.put(fullName, fm);
 
-            CoordinatorImp.filesMeta.put(fullName, fm);
-        } catch (ServiceUnavailableException | RemoteException e) {
-            throw new RuntimeException(e);
+                    break; // Operation succeeded, exit loop
+                } catch (RemoteException e) {
+                    // If this node fails, try the next one
+                    System.err.println("Node " + nodeId + " failed to create file: " + e.getMessage());
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
+                }
+            }
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException("No nodes available", e);
+        } catch (RemoteException e) {
+            throw new RuntimeException("Unexpected remote error", e);
         }
     }
 }
@@ -367,16 +392,28 @@ class GetThread extends Thread {
 
     @Override
     public void run() {
-        NodeInt node = null;
         try {
-            node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.increaseLoad(node);
-            CoordinatorImp.makeRead(fullName);
-            node.getFile(ip, port, fullName);
-            CoordinatorImp.decreaseLoad(node);
-            CoordinatorImp.removeStatus(fullName);
-        } catch (ServiceUnavailableException | RemoteException e) {
-            throw new RuntimeException(e);
+            List<String> sortedNodes = CoordinatorImp.getBestNode(nodes);
+            for (String nodeId : sortedNodes) {
+                NodeInt node = CoordinatorImp.nodes.get(nodeId);
+                try {
+                    CoordinatorImp.increaseLoad(node);
+                    CoordinatorImp.makeRead(fullName);
+                    node.getFile(ip, port, fullName);
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
+                    break; // Operation succeeded, exit loop
+                } catch (RemoteException e) {
+                    // If this node fails, try the next one
+                    System.err.println("Node " + nodeId + " failed to get file: " + e.getMessage());
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
+                }
+            }
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException("No nodes available", e);
+        } catch (RemoteException e) {
+            throw new RuntimeException("Unexpected remote error", e);
         }
     }
 }
@@ -396,16 +433,28 @@ class UpdateThread extends Thread {
 
     @Override
     public void run() {
-        NodeInt node = null;
         try {
-            node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.increaseLoad(node);
-            CoordinatorImp.makeWrite(fullName);
-            node.updateFile(ip, port, fullName);
-            CoordinatorImp.decreaseLoad(node);
-            CoordinatorImp.removeStatus(fullName);
-        } catch (ServiceUnavailableException | RemoteException e) {
-            throw new RuntimeException(e);
+            List<String> sortedNodes = CoordinatorImp.getBestNode(nodes);
+            for (String nodeId : sortedNodes) {
+                NodeInt node = CoordinatorImp.nodes.get(nodeId);
+                try {
+                    CoordinatorImp.increaseLoad(node);
+                    CoordinatorImp.makeWrite(fullName);
+                    node.updateFile(ip, port, fullName);
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
+                    break; // Operation succeeded, exit loop
+                } catch (RemoteException e) {
+                    // If this node fails, try the next one
+                    System.err.println("Node " + nodeId + " failed to update file: " + e.getMessage());
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
+                }
+            }
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException("No nodes available", e);
+        } catch (RemoteException e) {
+            throw new RuntimeException("Unexpected remote error", e);
         }
     }
 }
@@ -423,17 +472,29 @@ class DeleteThread extends Thread {
 
     @Override
     public void run() {
-        NodeInt node = null;
         try {
-            node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.increaseLoad(node);
-            CoordinatorImp.makeWrite(fullName);
-            node.deleteFile(fullName);
-            CoordinatorImp.decreaseLoad(node);
-            CoordinatorImp.removeStatus(fullName);
-            CoordinatorImp.deleteFile(fullName);
-        } catch (ServiceUnavailableException | RemoteException e) {
-            throw new RuntimeException(e);
+            List<String> sortedNodes = CoordinatorImp.getBestNode(nodes);
+            for (String nodeId : sortedNodes) {
+                NodeInt node = CoordinatorImp.nodes.get(nodeId);
+                try {
+                    CoordinatorImp.increaseLoad(node);
+                    CoordinatorImp.makeWrite(fullName);
+                    node.deleteFile(fullName);
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
+                    CoordinatorImp.deleteFile(fullName);
+                    break; // Operation succeeded, exit loop
+                } catch (RemoteException e) {
+                    // If this node fails, try the next one
+                    System.err.println("Node " + nodeId + " failed to delete file: " + e.getMessage());
+                    CoordinatorImp.decreaseLoad(node);
+                    CoordinatorImp.removeStatus(fullName);
+                }
+            }
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException("No nodes available", e);
+        } catch (RemoteException e) {
+            throw new RuntimeException("Unexpected remote error", e);
         }
     }
 }
@@ -449,14 +510,25 @@ class SyncThread extends Thread {
 
     @Override
     public void run() {
-        NodeInt node = null;
         try {
-            node = CoordinatorImp.getBestNode(nodes);
-            CoordinatorImp.increaseLoad(node);
-            node.syncFile(fullName);
-            CoordinatorImp.decreaseLoad(node);
-        } catch (ServiceUnavailableException | RemoteException e) {
-            throw new RuntimeException(e);
+            List<String> sortedNodes = CoordinatorImp.getBestNode(nodes);
+            for (String nodeId : sortedNodes) {
+                NodeInt node = CoordinatorImp.nodes.get(nodeId);
+                try {
+                    CoordinatorImp.increaseLoad(node);
+                    node.syncFile(fullName);
+                    CoordinatorImp.decreaseLoad(node);
+                    break; // Operation succeeded, exit loop
+                } catch (RemoteException e) {
+                    // If this node fails, try the next one
+                    System.err.println("Node " + nodeId + " failed to sync file: " + e.getMessage());
+                    CoordinatorImp.decreaseLoad(node);
+                }
+            }
+        } catch (ServiceUnavailableException e) {
+            throw new RuntimeException("No nodes available", e);
+        } catch (RemoteException e) {
+            throw new RuntimeException("Unexpected remote error", e);
         }
     }
 }
