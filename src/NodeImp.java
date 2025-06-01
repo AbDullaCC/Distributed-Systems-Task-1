@@ -440,7 +440,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 //        }
 
     public static void main(String[] args) {
-       startInstance("node_5");
+       startInstance("node_3");
 
     }
     public enum MulticastMessageType {
@@ -555,8 +555,6 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
                 } catch (IOException e) {
                     System.err.println("Node " + id + ": Multicast setup error: " + e.getMessage());
                 }
-
-
 
                 // Reschedule for next day
                 scheduleTask();

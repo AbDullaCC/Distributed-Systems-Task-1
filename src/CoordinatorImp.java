@@ -92,8 +92,8 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
         // Optionally, remove from the main 'nodes' map and 'load' map if desired,
         // but this means the node would need to re-register fully.
         // For now, just marking as inactive in 'activeNodes' map.
-        // load.remove(nodeId);
-        // nodes.remove(nodeId);
+         load.remove(nodeId);
+         nodes.remove(nodeId);
         // System.out.println("Coordinator: Node " + nodeId + " effectively removed due to inactivity.");
 
         // Additional fault tolerance logic could be triggered here, e.g.,
