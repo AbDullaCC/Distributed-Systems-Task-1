@@ -118,6 +118,7 @@ public class Client {
         }
         if (isManager){
             actions.add("Add an employee");
+            actions.add("Sync now");
         }
         return actions;
     }
@@ -139,6 +140,9 @@ public class Client {
                 break;
             case 5:
                 this.addEmployee(department);
+                break;
+            case 6:
+                this.syncNow();
                 break;
             default:
                 throw new IllegalArgumentException("Invalid action, something went wrong");
@@ -258,6 +262,10 @@ public class Client {
         if (username == null || password == null){ throw new IllegalArgumentException("Invalid username or password"); }
 
         coordinator.addEmployee(token, username, password, List.of(department));
+    }
+
+    private void syncNow() throws RemoteException {
+        coordinator.userSync(token);
     }
 
     private List<String> getDepartmentFiles(String department) throws RemoteException {
