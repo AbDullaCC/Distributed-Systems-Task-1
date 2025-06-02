@@ -51,7 +51,19 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
             }
         }
         System.out.println("Node " + id + " is ready at path: " + this.storageBasePath);
+        try {
+            multicastGroupAddress = InetAddress.getByName(MULTICAST_ADDRESS);
+            multicastListenSocket = new MulticastSocket(MULTICAST_PORT); // Bind to the port for listening
+            multicastListenSocket.joinGroup(multicastGroupAddress);
+            System.out.println("Node " + id + ": Joined multicast group " + MULTICAST_ADDRESS + ":" + MULTICAST_PORT);
 
+            Thread multicastListenerThread = new Thread(NodeImp.this::listenForMulticastMessages);
+            multicastListenerThread.setDaemon(true);
+            multicastListenerThread.start();
+
+        } catch (IOException e) {
+            System.err.println("Node " + id + ": Multicast setup error: " + e.getMessage());
+        }
 
 
         // Graceful shutdown of multicast socket
@@ -440,7 +452,7 @@ public class NodeImp extends UnicastRemoteObject implements NodeInt {
 //        }
 
     public static void main(String[] args) {
-       startInstance("node_3");
+       startInstance("node_4");
 
     }
     public enum MulticastMessageType {

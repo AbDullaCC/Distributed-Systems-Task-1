@@ -176,7 +176,6 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
                 try {
                     System.out.println("node sync....");
                     nodesSync();
-                    System.out.println("status " + nodesSync());
 
                     scheduleNodeSync();
 
