@@ -159,8 +159,8 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
 
     private void scheduleNodeSync() {
         Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 1);
+        calendar.set(Calendar.HOUR_OF_DAY, 14);
+        calendar.set(Calendar.MINUTE, 46);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
 
@@ -174,7 +174,9 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             @Override
             public void run() {
                 try {
+                    System.out.println("node sync....");
                     nodesSync();
+                    System.out.println("status " + nodesSync());
 
                     scheduleNodeSync();
 
@@ -327,6 +329,14 @@ public class CoordinatorImp extends UnicastRemoteObject implements CoordinatorIn
             }
         }
         return false;
+    }
+@Override
+    public boolean userSync(String token) throws RemoteException {
+        isValidToken(token);
+        if (!isManager(token))
+            throw new InvalidParameterException("Forbidden operation, you should be a manager to add new employees");
+
+        return nodesSync();
     }
 
 }

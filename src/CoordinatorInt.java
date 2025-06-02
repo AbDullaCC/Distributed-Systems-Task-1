@@ -7,7 +7,6 @@ import java.security.InvalidParameterException;
 import java.util.List;
 
 public interface CoordinatorInt extends Remote {
-
     boolean isValidToken(String token) throws RemoteException;
 
     boolean otherActionsAllowed(String token, String department) throws RemoteException;
@@ -31,4 +30,6 @@ public interface CoordinatorInt extends Remote {
     void addNode(String id) throws RemoteException, MalformedURLException, NotBoundException;
 
     boolean addEmployee(String token, String username, String password, List<String> roles) throws RemoteException;
+    boolean userSync(String token) throws RemoteException;
+
 }
